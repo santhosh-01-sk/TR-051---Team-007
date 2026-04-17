@@ -53,11 +53,27 @@ def test_pipeline_wrapper():
     pre_image = np.random.randint(0, 255, (256, 256, 3), dtype=np.uint8)
     post_image = np.random.randint(0, 255, (256, 256, 3), dtype=np.uint8)
     
-    seg_map, damage_map = pipeline.predict(pre_image, post_image, disaster_type_id=2)
+    seg_map, damage_map, stats, geojson_str = pipeline.predict(pre_image, post_image, disaster_type_id=2)
     
     assert seg_map.shape == (256, 256), f"Expected seg_map shape (256, 256), got {seg_map.shape}"
     assert damage_map.shape == (256, 256), f"Expected damage_map shape (256, 256), got {damage_map.shape}"
-    print("Inference wrapper passed! Returning correctly shaped numpy masks.")
+    
+    # Validate stats structure
+    assert 'objects_counted' in stats, "Stats missing 'objects_counted'"
+    assert 'impact_area_ha' in stats, "Stats missing 'impact_area_ha'"
+    assert 'impact_area_sq_km' in stats, "Stats missing 'impact_area_sq_km'"
+    for key in ['No Damage', 'Minor', 'Major', 'Destroyed']:
+        assert key in stats['objects_counted'], f"Stats missing class '{key}'"
+    
+    # Validate GeoJSON
+    import json
+    geojson = json.loads(geojson_str)
+    assert geojson['type'] == 'FeatureCollection', "GeoJSON type must be FeatureCollection"
+    assert 'features' in geojson, "GeoJSON missing 'features'"
+    
+    print(f"Stats: {stats}")
+    print(f"GeoJSON features count: {len(geojson['features'])}")
+    print("Inference wrapper passed! Returning correctly shaped numpy masks with stats and GeoJSON.")
 
 if __name__ == "__main__":
     test_model_shapes()

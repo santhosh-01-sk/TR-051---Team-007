@@ -5,6 +5,19 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>DisasterAI - Satellite Assessment Pipeline</title>
+    <meta name="description"
+        content="AI-powered disaster damage assessment using Siamese Neural Networks and satellite imagery">
+    <!-- React + Babel + Chart.js -->
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+    <!-- Leaflet -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.css" />
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.js"></script>
+    <!-- Fonts -->
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&display=swap" rel="stylesheet">
     <style>
         :root {
@@ -48,7 +61,7 @@
 
         header {
             text-align: center;
-            margin-bottom: 3rem;
+            margin-bottom: 2rem;
         }
 
         h1 {
@@ -68,15 +81,58 @@
 
         .container {
             width: 100%;
-            max-width: 900px;
+            max-width: 1000px;
             background: var(--bg-card);
             backdrop-filter: blur(16px);
             border: 1px solid rgba(255, 255, 255, 0.1);
             border-radius: 24px;
-            padding: 3rem;
+            padding: 2.5rem;
             box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
         }
 
+        /* Tab System */
+        .tab-bar {
+            display: flex;
+            gap: 0;
+            margin-bottom: 2rem;
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 12px;
+            overflow: hidden;
+        }
+
+        .tab-btn {
+            flex: 1;
+            padding: 1rem;
+            text-align: center;
+            cursor: pointer;
+            background: transparent;
+            border: none;
+            color: var(--text-muted);
+            font-size: 0.95rem;
+            font-weight: 600;
+            transition: all 0.3s;
+            font-family: 'Outfit', sans-serif;
+        }
+
+        .tab-btn.active {
+            background: linear-gradient(135deg, var(--primary), #3B82F6);
+            color: white;
+        }
+
+        .tab-btn:hover:not(.active) {
+            background: rgba(255, 255, 255, 0.05);
+        }
+
+        .tab-content {
+            display: none;
+        }
+
+        .tab-content.active {
+            display: block;
+            animation: fadeIn 0.4s ease;
+        }
+
+        /* Upload boxes */
         .upload-section {
             display: grid;
             grid-template-columns: 1fr 1fr;
@@ -125,6 +181,7 @@
             display: none;
         }
 
+        /* Controls */
         .controls {
             display: flex;
             justify-content: space-between;
@@ -145,6 +202,7 @@
             cursor: pointer;
             outline: none;
             transition: border-color 0.3s;
+            font-family: 'Outfit', sans-serif;
         }
 
         select:hover,
@@ -152,6 +210,22 @@
             border-color: var(--primary);
         }
 
+        input[type="date"] {
+            background: rgba(15, 23, 42, 0.8);
+            color: var(--text-main);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            padding: 0.8rem 1.5rem;
+            border-radius: 12px;
+            font-size: 1rem;
+            outline: none;
+            font-family: 'Outfit', sans-serif;
+        }
+
+        input[type="date"]::-webkit-calendar-picker-indicator {
+            filter: invert(1);
+        }
+
+        /* Buttons */
         .btn {
             background: linear-gradient(135deg, var(--primary), #3B82F6);
             color: white;
@@ -163,6 +237,7 @@
             cursor: pointer;
             transition: all 0.3s ease;
             box-shadow: 0 4px 14px 0 rgba(79, 70, 229, 0.39);
+            font-family: 'Outfit', sans-serif;
         }
 
         .btn:hover {
@@ -181,26 +256,6 @@
             margin-top: 3rem;
             display: none;
             animation: fadeIn 0.5s ease-in-out;
-        }
-
-        .results-grid {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 2rem;
-        }
-
-        .result-card {
-            background: rgba(0, 0, 0, 0.2);
-            border-radius: 16px;
-            padding: 1.5rem;
-            text-align: center;
-        }
-
-        .result-card img {
-            width: 100%;
-            border-radius: 8px;
-            margin-top: 1rem;
-            filter: drop-shadow(0 4px 6px rgba(0, 0, 0, 0.3));
         }
 
         .loader {
@@ -223,103 +278,200 @@
                 transform: rotate(360deg);
             }
         }
+
+        /* Map */
+        #leaflet-map {
+            width: 100%;
+            height: 400px;
+            border-radius: 16px;
+            margin-bottom: 1.5rem;
+            z-index: 1;
+        }
+
+        .map-instructions {
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 10px;
+            padding: 1rem;
+            margin-bottom: 1rem;
+            font-size: 0.85rem;
+            color: var(--text-muted);
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .map-instructions span {
+            font-size: 1.2rem;
+        }
+
+        /* Leaflet results map */
+        #result-map {
+            width: 100%;
+            height: 450px;
+            border-radius: 16px;
+            margin-top: 1.5rem;
+            z-index: 1;
+        }
+
+        .auto-form-row {
+            display: flex;
+            gap: 1rem;
+            align-items: flex-end;
+            flex-wrap: wrap;
+        }
+
+        .auto-form-group {
+            display: flex;
+            flex-direction: column;
+            gap: 0.4rem;
+        }
+
+        .auto-form-group label {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
     </style>
 </head>
 
 <body>
-
     <header>
         <h1>DisasterAI</h1>
         <p>Siamese Neural Network Pipeline for Automated Damage Assessment</p>
     </header>
 
     <div class="container">
-        <form id="assessmentForm" enctype="multipart/form-data">
-            <div class="upload-section">
-                <!-- Pre-Disaster -->
-                <div class="upload-box" id="preBox">
-                    <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
-                        stroke-linecap="round" stroke-linejoin="round" style="color: #94A3B8;">
-                        <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
-                        <circle cx="8.5" cy="8.5" r="1.5"></circle>
-                        <polyline points="21 15 16 10 5 21"></polyline>
-                    </svg>
-                    <h3>Upload Pre-Disaster Image</h3>
-                    <p style="font-size: 0.9rem; margin-top: 5px;">drag & drop or click</p>
-                    <input type="file" id="preImage" accept="image/*" required
-                        onchange="previewFile('preImage', 'prePreview')">
-                    <img id="prePreview" class="preview-img">
-                </div>
+        <!-- Tab Bar -->
+        <div class="tab-bar">
+            <button class="tab-btn active" id="tabManual" onclick="switchTab('manual')">📤 Manual Upload</button>
+            <button class="tab-btn" id="tabAuto" onclick="switchTab('auto')">🛰️ Automatic (Satellite API)</button>
+        </div>
 
-                <!-- Post-Disaster -->
-                <div class="upload-box" id="postBox">
-                    <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
-                        stroke-linecap="round" stroke-linejoin="round" style="color: #94A3B8;">
-                        <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
-                        <circle cx="8.5" cy="8.5" r="1.5"></circle>
-                        <polyline points="21 15 16 10 5 21"></polyline>
-                    </svg>
-                    <h3>Upload Post-Disaster Image</h3>
-                    <p style="font-size: 0.9rem; margin-top: 5px;">drag & drop or click</p>
-                    <input type="file" id="postImage" accept="image/*" required
-                        onchange="previewFile('postImage', 'postPreview')">
-                    <img id="postPreview" class="preview-img">
+        <!-- ===================== TAB 1: MANUAL UPLOAD ===================== -->
+        <div class="tab-content active" id="manualTab">
+            <form id="assessmentForm" enctype="multipart/form-data">
+                <div class="upload-section">
+                    <div class="upload-box" id="preBox">
+                        <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color: #94A3B8;">
+                            <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+                            <circle cx="8.5" cy="8.5" r="1.5"></circle>
+                            <polyline points="21 15 16 10 5 21"></polyline>
+                        </svg>
+                        <h3>Upload Pre-Disaster Image</h3>
+                        <p style="font-size: 0.9rem; margin-top: 5px;">drag & drop or click</p>
+                        <input type="file" id="preImage" accept="image/*" required
+                            onchange="previewFile('preImage', 'prePreview')">
+                        <img id="prePreview" class="preview-img">
+                    </div>
+                    <div class="upload-box" id="postBox">
+                        <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color: #94A3B8;">
+                            <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+                            <circle cx="8.5" cy="8.5" r="1.5"></circle>
+                            <polyline points="21 15 16 10 5 21"></polyline>
+                        </svg>
+                        <h3>Upload Post-Disaster Image</h3>
+                        <p style="font-size: 0.9rem; margin-top: 5px;">drag & drop or click</p>
+                        <input type="file" id="postImage" accept="image/*" required
+                            onchange="previewFile('postImage', 'postPreview')">
+                        <img id="postPreview" class="preview-img">
+                    </div>
                 </div>
+                <div class="controls">
+                    <div>
+                        <label for="disasterType"
+                            style="display: block; margin-bottom: 0.5rem; font-size: 0.9rem; color: var(--text-muted);">Disaster
+                            Category</label>
+                        <select id="disasterType">
+                            <option value="0">Earthquake</option>
+                            <option value="1">Flood</option>
+                            <option value="2">Hurricane</option>
+                            <option value="3">Wildfire</option>
+                            <option value="4">Tsunami</option>
+                        </select>
+                    </div>
+                    <button type="submit" class="btn" id="analyzeBtn" style="display: flex; align-items: center;">
+                        Run Assessment Pipeline
+                        <div class="loader" id="loader"></div>
+                    </button>
+                </div>
+            </form>
+        </div>
+
+        <!-- ===================== TAB 2: AUTOMATIC SATELLITE ===================== -->
+        <div class="tab-content" id="autoTab">
+            <div class="map-instructions">
+                <span>📍</span> Draw a rectangle on the map to select your Area of Interest (AOI). Then set the disaster
+                date and type below.
             </div>
+            <div id="leaflet-map"></div>
 
-            <div class="controls">
-                <div>
-                    <label for="disasterType"
-                        style="display: block; margin-bottom: 0.5rem; font-size: 0.9rem; color: var(--text-muted);">Disaster
-                        Category</label>
-                    <select id="disasterType">
-                        <option value="0">Earthquake</option>
-                        <option value="1">Flood</option>
-                        <option value="2">Hurricane</option>
-                        <option value="3">Wildfire</option>
-                        <option value="4">Tsunami</option>
+            <div class="auto-form-row">
+                <div class="auto-form-group" style="flex:1;">
+                    <label for="autoDate">Disaster Date</label>
+                    <input type="date" id="autoDate" value="2025-02-06">
+                </div>
+                <div class="auto-form-group" style="flex:1;">
+                    <label for="autoDisasterType">Disaster Type</label>
+                    <select id="autoDisasterType">
+                        <option value="earthquake">Earthquake</option>
+                        <option value="flood">Flood</option>
+                        <option value="hurricane">Hurricane</option>
+                        <option value="wildfire">Wildfire</option>
+                        <option value="tsunami">Tsunami</option>
                     </select>
                 </div>
-
-                <button type="submit" class="btn" id="analyzeBtn" style="display: flex; align-items: center;">
-                    Run Assessment Pipeline
-                    <div class="loader" id="loader"></div>
-                </button>
+                <div class="auto-form-group">
+                    <label>&nbsp;</label>
+                    <button class="btn" id="autoAnalyzeBtn" style="display: flex; align-items: center;"
+                        onclick="runAutoAssessment()">
+                        🛰️ Fetch & Analyze
+                        <div class="loader" id="autoLoader"></div>
+                    </button>
+                </div>
             </div>
-        </form>
+            <div id="bbox-display" style="margin-top: 1rem; font-size: 0.8rem; color: var(--text-muted);"></div>
+        </div>
 
+        <!-- ===================== RESULTS AREA (shared) ===================== -->
         <div class="results" id="resultsArea">
-            <h2 style="font-size: 1.8rem; margin-bottom: 1.5rem; text-align: center; color: var(--secondary);">
-                Assessment Results</h2>
-            <div class="results-grid">
-                <div class="result-card">
-                    <h3 style="color: #60A5FA;">Building Segmentation</h3>
-                    <img id="segResultImg" src="" alt="Segmentation Mask">
-                </div>
-                <div class="result-card">
-                    <h3 style="color: #F87171;">Damage Map</h3>
-                    <img id="damageResultImg" src="" alt="Damage Mask">
-                </div>
-            </div>
+            <div id="react-root"></div>
+            <div id="result-map" style="display: none;"></div>
         </div>
     </div>
 
+    <!-- ===================== VANILLA JS ===================== -->
     <script>
+        // Tab switching
+        function switchTab(tab) {
+            document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+            document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
+            document.getElementById('resultsArea').style.display = 'none';
+            if (tab === 'manual') {
+                document.getElementById('manualTab').classList.add('active');
+                document.getElementById('tabManual').classList.add('active');
+            } else {
+                document.getElementById('autoTab').classList.add('active');
+                document.getElementById('tabAuto').classList.add('active');
+                setTimeout(() => { if (window.leafletMap) window.leafletMap.invalidateSize(); }, 200);
+            }
+        }
+
+        // File preview
         function previewFile(inputId, imgId) {
             const file = document.getElementById(inputId).files[0];
             const preview = document.getElementById(imgId);
             const reader = new FileReader();
-
             reader.addEventListener("load", function () {
                 preview.src = reader.result;
                 preview.style.display = "block";
             }, false);
-
-            if (file) {
-                reader.readAsDataURL(file);
-            }
+            if (file) reader.readAsDataURL(file);
         }
 
+        // ---- MANUAL UPLOAD HANDLER ----
         document.getElementById('assessmentForm').addEventListener('submit', async (e) => {
             e.preventDefault();
             const btn = document.getElementById('analyzeBtn');
@@ -355,9 +507,11 @@
                     return res.json();
                 })
                 .then(data => {
-                    console.log(data);
-                    document.getElementById('segResultImg').src = "data:image/png;base64," + data.seg_base64;
-                    document.getElementById('damageResultImg').src = "data:image/png;base64," + data.damage_base64;
+                    const preImgSrc = document.getElementById('prePreview').src;
+                    document.getElementById('result-map').style.display = 'none';
+                    if (window.renderDashboard) {
+                        window.renderDashboard(data, preImgSrc, null);
+                    }
                     results.style.display = "block";
                 })
                 .catch(err => {
@@ -369,6 +523,404 @@
                     loader.style.display = "none";
                 });
         });
+
+        // ---- LEAFLET MAP INIT ----
+        let drawnBBox = null;
+        let drawnLayer = null;
+        document.addEventListener('DOMContentLoaded', () => {
+            // Restrict Map Panning to single logical Earth dimension (no infinite clones)
+            const bounds = L.latLngBounds(L.latLng(-90, -180), L.latLng(90, 180));
+
+            // Satellite Layer (Esri World Imagery)
+            const satelliteLayer = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+                attribution: 'Tiles &copy; Esri &mdash; Source: Esri',
+                maxZoom: 19,
+                maxNativeZoom: 17,
+                noWrap: true,
+                bounds: bounds
+            });
+
+            // Dark Map Layer (CartoDB)
+            const darkLayer = L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+                attribution: '&copy; <a href="https://carto.com/">CARTO</a>',
+                maxZoom: 19,
+                subdomains: 'abcd',
+                noWrap: true,
+                bounds: bounds
+            });
+
+            // Street Map Layer (CartoDB Voyager)
+            const streetLayer = L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
+                attribution: '&copy; <a href="https://carto.com/">CARTO</a>',
+                maxZoom: 19,
+                subdomains: 'abcd',
+                noWrap: true,
+                bounds: bounds
+            });
+
+            // Initialize map with Satellite as default and restrict edges
+            const map = L.map('leaflet-map', {
+                center: [28.6139, 77.2090],
+                zoom: 4,
+                minZoom: 2,
+                maxBounds: bounds,
+                maxBoundsViscosity: 1.0,
+                layers: [satelliteLayer]
+            });
+
+            // Add layer control
+            const baseMaps = {
+                "Satellite View": satelliteLayer,
+                "Dark Map": darkLayer,
+                "Street Map": streetLayer
+            };
+            L.control.layers(baseMaps).addTo(map);
+
+            const drawnItems = new L.FeatureGroup();
+            map.addLayer(drawnItems);
+
+            const drawControl = new L.Control.Draw({
+                draw: {
+                    polygon: false, polyline: false, circle: false, circlemarker: false, marker: false,
+                    rectangle: {
+                        shapeOptions: { color: '#4F46E5', weight: 2, fillOpacity: 0.15 }
+                    }
+                },
+                edit: { featureGroup: drawnItems }
+            });
+            map.addControl(drawControl);
+
+            map.on(L.Draw.Event.CREATED, (e) => {
+                drawnItems.clearLayers();
+                drawnLayer = e.layer;
+                drawnItems.addLayer(drawnLayer);
+                const bounds = drawnLayer.getBounds();
+                drawnBBox = [
+                    parseFloat(bounds.getWest().toFixed(6)),
+                    parseFloat(bounds.getSouth().toFixed(6)),
+                    parseFloat(bounds.getEast().toFixed(6)),
+                    parseFloat(bounds.getNorth().toFixed(6))
+                ];
+                document.getElementById('bbox-display').innerHTML =
+                    `<strong>Selected AOI:</strong> [${drawnBBox.join(', ')}]`;
+            });
+
+            window.leafletMap = map;
+        });
+
+        // ---- AUTO ASSESSMENT HANDLER ----
+        function runAutoAssessment() {
+            if (!drawnBBox) {
+                alert("Please draw a bounding box on the map first!");
+                return;
+            }
+            const btn = document.getElementById('autoAnalyzeBtn');
+            const loader = document.getElementById('autoLoader');
+            const results = document.getElementById('resultsArea');
+
+            btn.disabled = true;
+            results.style.display = 'none';
+
+            let step = 0;
+            const steps = [
+                "[Searching Archive...]",
+                "[Downloading Pre/Post Imagery...]",
+                "[Running Siamese AI Inference...]",
+                "[Generating Damage Statistics...]"
+            ];
+            btn.innerHTML = steps[0] + '<div class="loader" style="display:block; margin-left:10px;"></div>';
+            const stepInterval = setInterval(() => {
+                step++;
+                if(step >= steps.length - 1) {
+                    step = steps.length - 1;
+                    clearInterval(stepInterval);
+                }
+                btn.innerHTML = steps[step] + '<div class="loader" style="display:block; margin-left:10px;"></div>';
+            }, 1200);
+
+            const payload = {
+                bbox: drawnBBox,
+                date: document.getElementById('autoDate').value,
+                disaster_type: document.getElementById('autoDisasterType').value
+            };
+
+            fetch("http://127.0.0.1:8000/auto_assess", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(payload)
+            })
+                .then(res => {
+                    if (!res.ok) throw new Error("Server Error");
+                    return res.json();
+                })
+                .then(data => {
+                    if (data.error) throw new Error(data.error);
+                    const preImgSrc = "data:image/png;base64," + data.pre_base64;
+                    if (window.renderDashboard) {
+                        window.renderDashboard(data, preImgSrc, drawnBBox);
+                    }
+                    results.style.display = "block";
+                })
+                .catch(err => {
+                    console.error(err);
+                    alert("Error: " + err.message);
+                })
+                .finally(() => {
+                    clearInterval(stepInterval);
+                    btn.disabled = false;
+                    btn.innerHTML = '🛰️ Fetch & Analyze <div class="loader" id="autoLoader"></div>';
+                });
+        }
+    </script>
+
+    <!-- ===================== REACT DASHBOARD ===================== -->
+    <script type="text/babel">
+        const { useState, useEffect, useRef } = React;
+
+        const SwipeSlider = ({ preImg, postImg }) => {
+            const [sliderPos, setSliderPos] = useState(50);
+            const [isDragging, setIsDragging] = useState(false);
+            const handleMouseMove = (e) => {
+                if (!isDragging) return;
+                const rect = e.currentTarget.getBoundingClientRect();
+                const x = Math.max(0, Math.min(e.clientX - rect.left, rect.width));
+                setSliderPos((x / rect.width) * 100);
+            };
+            return (
+                <div
+                    style={{ position: 'relative', width: '100%', height: '300px', cursor: 'ew-resize', userSelect: 'none', borderRadius: '12px', overflow: 'hidden' }}
+                    onMouseDown={() => setIsDragging(true)}
+                    onMouseUp={() => setIsDragging(false)}
+                    onMouseLeave={() => setIsDragging(false)}
+                    onMouseMove={handleMouseMove}
+                >
+                    <img src={postImg} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                    <img src={preImg} style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', objectFit: 'cover', clipPath: `polygon(0 0, ${sliderPos}% 0, ${sliderPos}% 100%, 0 100%)` }} />
+                    <div style={{ position: 'absolute', top: 0, bottom: 0, left: `${sliderPos}%`, width: '3px', backgroundColor: 'white', pointerEvents: 'none', boxShadow: '0 0 12px rgba(0,0,0,0.6)' }}>
+                        <div style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', width: '32px', height: '32px', borderRadius: '50%', background: 'rgba(255,255,255,0.9)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '14px', color: '#333', boxShadow: '0 2px 8px rgba(0,0,0,0.3)' }}>⇋</div>
+                    </div>
+                    <div style={{ position: 'absolute', top: 8, left: 8, background: 'rgba(0,0,0,0.6)', color: '#fff', padding: '4px 10px', borderRadius: '6px', fontSize: '0.7rem', fontWeight: 600 }}>PRE-DISASTER</div>
+                    <div style={{ position: 'absolute', top: 8, right: 8, background: 'rgba(0,0,0,0.6)', color: '#fff', padding: '4px 10px', borderRadius: '6px', fontSize: '0.7rem', fontWeight: 600 }}>POST + OVERLAY</div>
+                </div>
+            );
+        };
+
+        const SeverityChart = ({ stats }) => {
+            useEffect(() => {
+                const ctx = document.getElementById('severityChart');
+                if (!ctx) return;
+                const haData = [
+                    stats.impact_area_ha['No Damage'],
+                    stats.impact_area_ha.Minor,
+                    stats.impact_area_ha.Major,
+                    stats.impact_area_ha.Destroyed
+                ];
+                const chart = new Chart(ctx.getContext('2d'), {
+                    type: 'bar',
+                    data: {
+                        labels: ['No Damage', 'Minor', 'Major', 'Destroyed'],
+                        datasets: [{ label: 'Impact Area (ha)', data: haData, backgroundColor: ['#22C55E', '#EAB308', '#F97316', '#EF4444'], borderRadius: 8, borderSkipped: false }]
+                    },
+                    options: {
+                        responsive: true, maintainAspectRatio: false,
+                        animation: { duration: 800, easing: 'easeOutQuart' },
+                        plugins: { legend: { display: false } },
+                        scales: {
+                            y: { beginAtZero: true, grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#94A3B8', font: { family: 'Outfit' } } },
+                            x: { grid: { display: false }, ticks: { color: '#94A3B8', font: { family: 'Outfit' } } }
+                        }
+                    }
+                });
+                return () => chart.destroy();
+            }, [stats]);
+            return <canvas id="severityChart" style={{ width: '100%', height: '100%' }}></canvas>;
+        };
+
+        const ResultMap = ({ geojsonStr, bbox }) => {
+            useEffect(() => {
+                if (!bbox) return;
+                const mapEl = document.getElementById('result-map');
+                mapEl.style.display = 'block';
+                // Clear old map
+                if (window._resultMap) { window._resultMap.remove(); }
+                const center = [(bbox[1] + bbox[3]) / 2, (bbox[0] + bbox[2]) / 2];
+                const satelliteLayer = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+                    attribution: 'Tiles &copy; Esri', maxZoom: 19, maxNativeZoom: 17
+                });
+                const darkLayer = L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+                    attribution: '&copy; CARTO', maxZoom: 19, subdomains: 'abcd'
+                });
+                const streetLayer = L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
+                    attribution: '&copy; CARTO', maxZoom: 19, subdomains: 'abcd'
+                });
+
+                const map = L.map('result-map', {
+                    center: center,
+                    zoom: 14,
+                    layers: [satelliteLayer]
+                });
+
+                const baseMaps = {
+                    "Satellite View": satelliteLayer,
+                    "Dark Map": darkLayer,
+                    "Street Map": streetLayer
+                };
+                L.control.layers(baseMaps).addTo(map);
+                window._resultMap = map;
+
+                try {
+                    const geojson = JSON.parse(geojsonStr);
+                    const colorMap = { 'No Damage': '#22C55E', 'Minor': '#EAB308', 'Major': '#F97316', 'Destroyed': '#EF4444' };
+                    L.geoJSON(geojson, {
+                        style: (feature) => ({
+                            fillColor: colorMap[feature.properties.severity] || '#888',
+                            weight: 1, opacity: 0.8, color: '#fff', fillOpacity: 0.55
+                        }),
+                        onEachFeature: (feature, layer) => {
+                            const p = feature.properties;
+                            layer.bindPopup(`<b>${p.severity}</b><br>Area: ${p.area_sq_m} m²<br>${p.area_ha} ha`);
+                        }
+                    }).addTo(map);
+                    // Fit bounds
+                    map.fitBounds([[bbox[1], bbox[0]], [bbox[3], bbox[2]]]);
+                } catch (e) { console.error("GeoJSON parse error", e); }
+
+                setTimeout(() => map.invalidateSize(), 300);
+            }, [geojsonStr, bbox]);
+            return null;
+        };
+
+        const Dashboard = ({ data, preImgSrc, bbox }) => {
+            const { stats, geojson, confidence_score, heatmap_base64, processing_time_ms, iou_destroyed, agent_reasoning } = data;
+            const metadata = data.metadata || null;
+
+            const heatmapSrc = "data:image/png;base64," + heatmap_base64;
+            const dmgLevels = [
+                { key: 'No Damage', color: '#22C55E', icon: '🟢' },
+                { key: 'Minor', color: '#EAB308', icon: '🟡' },
+                { key: 'Major', color: '#F97316', icon: '🟠' },
+                { key: 'Destroyed', color: '#EF4444', icon: '🔴' }
+            ];
+            const totalObjects = dmgLevels.reduce((sum, l) => sum + stats.objects_counted[l.key], 0);
+            const totalAreaHa = dmgLevels.reduce((sum, l) => sum + stats.impact_area_ha[l.key], 0).toFixed(3);
+
+            return (
+                <div style={{ animation: 'fadeIn 0.5s ease-in-out' }}>
+                    <h2 style={{ fontSize: '1.8rem', marginBottom: '0.5rem', textAlign: 'center', color: 'var(--secondary)' }}>Assessment Results</h2>
+
+                    {/* Source metadata badge (auto mode) */}
+                    {metadata && (
+                        <div style={{ textAlign: 'center', marginBottom: '0.8rem' }}>
+                            <span style={{ background: metadata.source === 'sentinel-2' ? 'rgba(16,185,129,0.2)' : 'rgba(234,179,8,0.2)', border: `1px solid ${metadata.source === 'sentinel-2' ? 'rgba(16,185,129,0.4)' : 'rgba(234,179,8,0.4)'}`, color: metadata.source === 'sentinel-2' ? '#10B981' : '#EAB308', padding: '4px 14px', borderRadius: '20px', fontSize: '0.75rem', fontWeight: 600 }}>
+                                Source: {metadata.source === 'sentinel-2' ? '🛰️ Sentinel-2 L2A' : '🧪 Demo (Synthetic Tiles)'}
+                            </span>
+                            <span style={{ fontSize: '0.75rem', color: '#94A3B8', marginLeft: 12 }}>
+                                Pre: {metadata.pre_date} → Post: {metadata.post_date}
+                            </span>
+                        </div>
+                    )}
+
+                    {/* Meta badges */}
+                    <div style={{ display: 'flex', justifyContent: 'center', gap: '1.5rem', marginBottom: '2rem', flexWrap: 'wrap' }}>
+                        <div style={{ background: 'rgba(16,185,129,0.15)', border: '1px solid rgba(16,185,129,0.3)', padding: '6px 16px', borderRadius: '20px', fontSize: '0.85rem' }}>
+                            Confidence: <span style={{ color: '#10B981', fontWeight: 'bold' }}>{(confidence_score * 100).toFixed(1)}%</span>
+                        </div>
+                        {iou_destroyed && (
+                            <div style={{ background: 'rgba(239, 68, 68, 0.15)', border: '1px solid rgba(239, 68, 68, 0.3)', padding: '6px 16px', borderRadius: '20px', fontSize: '0.85rem' }}>
+                                Destroyed IoU: <span style={{ color: '#EF4444', fontWeight: 'bold' }}>{(iou_destroyed * 100).toFixed(1)}%</span>
+                            </div>
+                        )}
+                        <div style={{ background: 'rgba(96,165,250,0.15)', border: '1px solid rgba(96,165,250,0.3)', padding: '6px 16px', borderRadius: '20px', fontSize: '0.85rem' }}>
+                            Time: <span style={{ color: '#60A5FA', fontWeight: 'bold' }}>{processing_time_ms} ms</span>
+                            {processing_time_ms < 30000 && <span style={{ color: '#22C55E', marginLeft: 6 }}>✓ &lt;30s</span>}
+                        </div>
+                        <div style={{ background: 'rgba(248,250,252,0.08)', border: '1px solid rgba(255,255,255,0.15)', padding: '6px 16px', borderRadius: '20px', fontSize: '0.85rem' }}>
+                            Total: <span style={{ fontWeight: 'bold' }}>{totalAreaHa} ha</span>
+                        </div>
+                    </div>
+
+                    {/* Reasoning Block */}
+                    {agent_reasoning && (
+                        <div style={{ background: 'rgba(15, 23, 42, 0.6)', borderLeft: '4px solid #60A5FA', padding: '1.2rem', borderRadius: '8px', marginBottom: '2rem' }}>
+                            <h4 style={{ color: '#60A5FA', fontSize: '0.9rem', textTransform: 'uppercase', marginBottom: '0.5rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                <span>🧠</span> AI Inference Reasoning
+                            </h4>
+                            <p style={{ color: '#E2E8F0', fontStyle: 'italic', fontSize: '1.05rem', lineHeight: '1.5' }}>"{agent_reasoning}"</p>
+                        </div>
+                    )}
+
+                    {/* Swipe + Chart */}
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '2rem' }}>
+                        <div style={{ background: 'rgba(0,0,0,0.2)', padding: '1rem', borderRadius: '16px' }}>
+                            <h3 style={{ marginBottom: '1rem', color: '#60A5FA', textAlign: 'center', fontSize: '1rem' }}>🛰️ Pre vs Post Comparison</h3>
+                            <SwipeSlider preImg={preImgSrc} postImg={heatmapSrc} />
+                        </div>
+                        <div style={{ background: 'rgba(0,0,0,0.2)', padding: '1rem', borderRadius: '16px', display: 'flex', flexDirection: 'column' }}>
+                            <h3 style={{ marginBottom: '1rem', color: '#F87171', textAlign: 'center', fontSize: '1rem' }}>📊 Severity Distribution</h3>
+                            <div style={{ flexGrow: 1, position: 'relative', minHeight: '250px' }}>
+                                <SeverityChart stats={stats} />
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Damage Breakdown Table */}
+                    <div style={{ background: 'rgba(0,0,0,0.2)', padding: '1.5rem', borderRadius: '16px', marginTop: '2rem' }}>
+                        <h3 style={{ marginBottom: '1rem', color: '#F8FAFC', textAlign: 'center', fontSize: '1rem' }}>📋 Damage Breakdown</h3>
+                        <table style={{ width: '100%', borderCollapse: 'separate', borderSpacing: '0 6px' }}>
+                            <thead>
+                                <tr style={{ fontSize: '0.8rem', color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                                    <th style={{ textAlign: 'left', padding: '0 12px', fontWeight: 500 }}>Class</th>
+                                    <th style={{ textAlign: 'center', padding: '0 12px', fontWeight: 500 }}>Objects</th>
+                                    <th style={{ textAlign: 'center', padding: '0 12px', fontWeight: 500 }}>Area (ha)</th>
+                                    <th style={{ textAlign: 'center', padding: '0 12px', fontWeight: 500 }}>Area (sq km)</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {dmgLevels.map(lvl => (
+                                    <tr key={lvl.key} style={{ background: 'rgba(255,255,255,0.03)' }}>
+                                        <td style={{ padding: '10px 12px', borderRadius: '8px 0 0 8px' }}>
+                                            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+                                                <span style={{ width: 10, height: 10, borderRadius: '50%', background: lvl.color, display: 'inline-block' }}></span>
+                                                {lvl.key}
+                                            </span>
+                                        </td>
+                                        <td style={{ textAlign: 'center', padding: '10px 12px', fontWeight: 600, color: lvl.color }}>{stats.objects_counted[lvl.key]}</td>
+                                        <td style={{ textAlign: 'center', padding: '10px 12px' }}>{stats.impact_area_ha[lvl.key]}</td>
+                                        <td style={{ textAlign: 'center', padding: '10px 12px', borderRadius: '0 8px 8px 0' }}>{stats.impact_area_sq_km[lvl.key]}</td>
+                                    </tr>
+                                ))}
+                                <tr style={{ borderTop: '1px solid rgba(255,255,255,0.1)', fontWeight: 600 }}>
+                                    <td style={{ padding: '10px 12px' }}>Total</td>
+                                    <td style={{ textAlign: 'center', padding: '10px 12px' }}>{totalObjects}</td>
+                                    <td style={{ textAlign: 'center', padding: '10px 12px' }}>{totalAreaHa}</td>
+                                    <td style={{ textAlign: 'center', padding: '10px 12px' }}>{dmgLevels.reduce((s, l) => s + stats.impact_area_sq_km[l.key], 0).toFixed(4)}</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    {/* KPI Cards */}
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '1rem', marginTop: '1.5rem' }}>
+                        {dmgLevels.map(lvl => (
+                            <div key={lvl.key} style={{ background: 'rgba(0,0,0,0.2)', padding: '1.2rem', borderRadius: '16px', textAlign: 'center', borderLeft: `3px solid ${lvl.color}` }}>
+                                <div style={{ fontSize: '1.5rem', marginBottom: '0.3rem' }}>{lvl.icon}</div>
+                                <h4 style={{ color: '#94A3B8', marginBottom: '0.3rem', fontSize: '0.8rem', textTransform: 'uppercase' }}>{lvl.key}</h4>
+                                <p style={{ fontSize: '1.5rem', fontWeight: 'bold', color: lvl.color }}>{stats.objects_counted[lvl.key]}</p>
+                                <p style={{ color: '#94A3B8', marginTop: '0.3rem', fontSize: '0.75rem' }}>{stats.impact_area_ha[lvl.key]} ha</p>
+                            </div>
+                        ))}
+                    </div>
+
+                    {/* Leaflet Result Map (auto mode only) */}
+                    {bbox && <ResultMap geojsonStr={geojson} bbox={bbox} />}
+                </div>
+            );
+        };
+
+        window.renderDashboard = (data, preImgSrc, bbox) => {
+            const root = ReactDOM.createRoot(document.getElementById('react-root'));
+            root.render(<Dashboard data={data} preImgSrc={preImgSrc} bbox={bbox} />);
+        };
     </script>
 </body>
 
