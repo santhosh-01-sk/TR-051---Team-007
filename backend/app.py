@@ -11,7 +11,7 @@ from pipeline import DisasterAssessmentPipeline
 from sentinel_fetcher import fetch_imagery
 from geo_processor import mask_to_geojson, compute_geo_stats
 
-app = Flask(__name__, static_folder='.', template_folder='.')
+app = Flask(__name__, static_folder='../frontend', template_folder='../frontend')
 CORS(app)
 
 # Initialize pipeline once to avoid loading overhead
@@ -66,7 +66,7 @@ def generate_heatmap_base64(seg_mask, damage_mask, post_img):
 
 @app.route('/')
 def home():
-    return send_from_directory('.', 'disaster.html')
+    return send_from_directory('../frontend', 'disaster.html')
 
 @app.route('/ingest', methods=['POST'])
 def ingest():
@@ -91,6 +91,18 @@ def ingest():
         seg_b64 = array_to_base64_img(seg_mask, cmap='seg')
         damage_b64 = array_to_base64_img(damage_mask, cmap='damage')
         heatmap_b64 = generate_heatmap_base64(seg_mask, damage_mask, post_img)
+        
+        # Override with real geography stats if bbox is provided
+        bbox_str = request.form.get('bbox')
+        if bbox_str:
+            import json
+            try:
+                bbox_parsed = json.loads(bbox_str)
+                from geo_processor import compute_geo_stats, mask_to_geojson
+                stats = compute_geo_stats(seg_mask, damage_mask, bbox_parsed)
+                geojson_str = mask_to_geojson(seg_mask, damage_mask, bbox_parsed)
+            except Exception:
+                pass
         
         # AI Confidence metrics
         confidence = 0.94 if not pipeline.weights_loaded else 0.88

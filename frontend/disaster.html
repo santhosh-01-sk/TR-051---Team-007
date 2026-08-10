@@ -1,0 +1,1659 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DisasterAI - AI-Powered Satellite Disaster Damage Assessment</title>
+    <meta name="description"
+        content="AI-powered disaster damage assessment using Siamese Neural Networks and satellite imagery">
+    <!-- React + Babel + Chart.js -->
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+    <!-- Leaflet -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.css" />
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.js"></script>
+    <!-- Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --primary: #4F46E5;
+            --primary-hover: #4338CA;
+            --secondary: #10B981;
+            --accent-blue: #3B82F6;
+            --bg-base: #0F172A;
+            --bg-card: rgba(30, 41, 59, 0.75);
+            --bg-card-hover: rgba(30, 41, 59, 0.9);
+            --text-main: #F8FAFC;
+            --text-muted: #94A3B8;
+            --border-color: rgba(255, 255, 255, 0.1);
+            --no-damage: #22C55E;
+            --minor-damage: #EAB308;
+            --major-damage: #F97316;
+            --destroyed: #EF4444;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Outfit', sans-serif;
+        }
+
+        body {
+            background-color: var(--bg-base);
+            background-image: 
+                radial-gradient(circle at 15% 15%, #1E1B4B 0%, transparent 40%),
+                radial-gradient(circle at 85% 85%, #064E3B 0%, transparent 40%),
+                radial-gradient(circle at 50% 50%, #0F172A 0%, #020617 100%);
+            background-attachment: fixed;
+            color: var(--text-main);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 2rem 1rem;
+            animation: fadeIn 0.8s ease-in-out;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(6px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        header {
+            text-align: center;
+            margin-bottom: 2rem;
+            max-width: 800px;
+        }
+
+        .brand-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            background: rgba(79, 70, 229, 0.15);
+            border: 1px solid rgba(99, 102, 241, 0.3);
+            padding: 6px 16px;
+            border-radius: 20px;
+            font-size: 0.85rem;
+            color: #818CF8;
+            font-weight: 600;
+            margin-bottom: 1rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        h1 {
+            font-size: 3.5rem;
+            font-weight: 800;
+            background: linear-gradient(135deg, #60A5FA 0%, #34D399 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin-bottom: 0.5rem;
+            letter-spacing: -0.02em;
+        }
+
+        .subtitle {
+            color: var(--text-main);
+            font-weight: 600;
+            font-size: 1.35rem;
+            margin-bottom: 0.4rem;
+        }
+
+        .tech-desc {
+            color: var(--text-muted);
+            font-weight: 400;
+            font-size: 0.95rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 1050px;
+            background: var(--bg-card);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 1px solid var(--border-color);
+            border-radius: 24px;
+            padding: 2.5rem;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.6);
+            margin-bottom: 3rem;
+        }
+
+        /* Tab System */
+        .tab-bar {
+            display: flex;
+            gap: 0;
+            margin-bottom: 2rem;
+            background: rgba(15, 23, 42, 0.6);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 14px;
+            padding: 4px;
+            overflow: hidden;
+        }
+
+        .tab-btn {
+            flex: 1;
+            padding: 0.9rem 1.2rem;
+            text-align: center;
+            cursor: pointer;
+            background: transparent;
+            border: none;
+            color: var(--text-muted);
+            font-size: 0.95rem;
+            font-weight: 600;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+
+        .tab-btn.active {
+            background: linear-gradient(135deg, var(--primary), var(--accent-blue));
+            color: white;
+            box-shadow: 0 4px 12px rgba(79, 70, 229, 0.3);
+        }
+
+        .tab-btn:hover:not(.active) {
+            background: rgba(255, 255, 255, 0.05);
+            color: var(--text-main);
+        }
+
+        .tab-content {
+            display: none;
+        }
+
+        .tab-content.active {
+            display: block;
+            animation: fadeIn 0.4s ease;
+        }
+
+        /* Upload Section */
+        .upload-section {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1.5rem;
+            margin-bottom: 1.5rem;
+        }
+
+        @media (max-width: 768px) {
+            .upload-section {
+                grid-template-columns: 1fr;
+            }
+            h1 {
+                font-size: 2.5rem;
+            }
+            .container {
+                padding: 1.5rem;
+            }
+        }
+
+        .upload-box {
+            border: 2px dashed rgba(148, 163, 184, 0.35);
+            border-radius: 18px;
+            padding: 1.8rem 1.5rem;
+            text-align: center;
+            transition: all 0.3s ease;
+            position: relative;
+            background: rgba(15, 23, 42, 0.4);
+            min-height: 240px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .upload-box:hover, .upload-box.drag-over {
+            border-color: var(--primary);
+            background: rgba(79, 70, 229, 0.08);
+            transform: translateY(-2px);
+        }
+
+        .upload-box.has-file {
+            border-style: solid;
+            border-color: rgba(16, 185, 129, 0.6);
+            background: rgba(16, 185, 129, 0.04);
+        }
+
+        .upload-box input[type="file"] {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            opacity: 0;
+            cursor: pointer;
+            z-index: 2;
+        }
+
+        .upload-box.has-file input[type="file"] {
+            display: none;
+        }
+
+        .upload-icon {
+            width: 48px;
+            height: 48px;
+            color: #94A3B8;
+            margin-bottom: 0.8rem;
+            transition: color 0.3s ease;
+        }
+
+        .upload-box:hover .upload-icon {
+            color: #60A5FA;
+        }
+
+        .upload-box h3 {
+            font-size: 1.15rem;
+            font-weight: 600;
+            color: var(--text-main);
+            margin-bottom: 0.3rem;
+        }
+
+        .upload-hint {
+            font-size: 0.85rem;
+            color: var(--text-muted);
+        }
+
+        .upload-formats {
+            font-size: 0.75rem;
+            color: rgba(148, 163, 184, 0.7);
+            margin-top: 0.5rem;
+            background: rgba(255, 255, 255, 0.05);
+            padding: 3px 10px;
+            border-radius: 12px;
+        }
+
+        /* Image Preview Box */
+        .preview-container {
+            display: none;
+            width: 100%;
+            flex-direction: column;
+            align-items: center;
+            position: relative;
+            z-index: 3;
+        }
+
+        .preview-img {
+            max-width: 100%;
+            max-height: 180px;
+            object-fit: contain;
+            border-radius: 10px;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.4);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            margin-bottom: 0.8rem;
+        }
+
+        .file-meta-card {
+            width: 100%;
+            background: rgba(15, 23, 42, 0.7);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 10px;
+            padding: 0.6rem 0.8rem;
+            font-size: 0.8rem;
+            text-align: left;
+            margin-bottom: 0.8rem;
+        }
+
+        .file-meta-row {
+            display: flex;
+            justify-content: space-between;
+            color: var(--text-muted);
+            margin-bottom: 2px;
+        }
+
+        .file-meta-row strong {
+            color: var(--text-main);
+            font-weight: 500;
+        }
+
+        .file-name-text {
+            color: #60A5FA;
+            font-weight: 600;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            max-width: 100%;
+            display: block;
+            margin-bottom: 4px;
+        }
+
+        .action-btn-group {
+            display: flex;
+            gap: 0.5rem;
+            width: 100%;
+        }
+
+        .btn-action {
+            flex: 1;
+            padding: 0.45rem 0.8rem;
+            font-size: 0.8rem;
+            border-radius: 8px;
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            background: rgba(255, 255, 255, 0.06);
+            color: var(--text-main);
+            cursor: pointer;
+            transition: all 0.2s ease;
+            font-weight: 500;
+        }
+
+        .btn-action:hover {
+            background: rgba(255, 255, 255, 0.15);
+            border-color: rgba(255, 255, 255, 0.3);
+        }
+
+        .btn-action.btn-danger:hover {
+            background: rgba(239, 68, 68, 0.2);
+            border-color: rgba(239, 68, 68, 0.4);
+            color: #EF4444;
+        }
+
+        .ready-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            background: rgba(16, 185, 129, 0.2);
+            color: #10B981;
+            border: 1px solid rgba(16, 185, 129, 0.4);
+            padding: 2px 10px;
+            border-radius: 12px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            margin-bottom: 0.6rem;
+        }
+
+        /* Readiness Global Bar */
+        .readiness-bar {
+            display: none;
+            background: rgba(16, 185, 129, 0.12);
+            border: 1px solid rgba(16, 185, 129, 0.3);
+            border-radius: 12px;
+            padding: 0.75rem 1rem;
+            margin-bottom: 1.5rem;
+            text-align: center;
+            font-size: 0.9rem;
+            color: #34D399;
+            font-weight: 600;
+            animation: fadeIn 0.3s ease;
+        }
+
+        /* Form Error Banner */
+        .error-banner {
+            display: none;
+            background: rgba(239, 68, 68, 0.15);
+            border: 1px solid rgba(239, 68, 68, 0.4);
+            border-radius: 12px;
+            padding: 0.8rem 1.2rem;
+            margin-bottom: 1.5rem;
+            color: #F87171;
+            font-size: 0.9rem;
+            font-weight: 500;
+            align-items: center;
+            gap: 10px;
+            animation: shake 0.4s ease;
+        }
+
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            20%, 60% { transform: translateX(-4px); }
+            40%, 80% { transform: translateX(4px); }
+        }
+
+        /* Controls */
+        .controls-panel {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-end;
+            gap: 1.5rem;
+            padding-top: 1.5rem;
+            border-top: 1px solid var(--border-color);
+            flex-wrap: wrap;
+        }
+
+        .select-group {
+            flex: 1;
+            min-width: 220px;
+        }
+
+        .select-group label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-size: 0.85rem;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            font-weight: 600;
+        }
+
+        .custom-select {
+            width: 100%;
+            appearance: none;
+            -webkit-appearance: none;
+            background-color: rgba(15, 23, 42, 0.9);
+            background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='16' height='16' fill='%94A3B8' viewBox='0 0 16 16'><path d='M7.247 11.14 2.451 5.658C1.885 5.013 2.345 4 3.204 4h9.592a1 1 0 0 1 .753 1.659l-4.796 5.48a1 1 0 0 1-1.506 0z'/></svg>");
+            background-repeat: no-repeat;
+            background-position: right 1rem center;
+            background-size: 14px;
+            color: var(--text-main);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            padding: 0.9rem 2.5rem 0.9rem 1.2rem;
+            border-radius: 14px;
+            font-size: 1rem;
+            cursor: pointer;
+            outline: none;
+            transition: all 0.3s;
+        }
+
+        .custom-select:hover, .custom-select:focus {
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.25);
+        }
+
+        /* Primary Button */
+        .btn-primary {
+            background: linear-gradient(135deg, var(--primary) 0%, var(--accent-blue) 100%);
+            color: white;
+            border: none;
+            padding: 1rem 2.2rem;
+            border-radius: 14px;
+            font-size: 1.05rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 18px rgba(79, 70, 229, 0.4);
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            min-height: 52px;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 24px rgba(79, 70, 229, 0.55);
+            background: linear-gradient(135deg, #4338CA 0%, #2563EB 100%);
+        }
+
+        .btn-primary:disabled {
+            background: #475569;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+            opacity: 0.7;
+        }
+
+        /* Stepped Processing Modal Overlay */
+        .processing-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background: rgba(15, 23, 42, 0.85);
+            backdrop-filter: blur(12px);
+            z-index: 9999;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .processing-card {
+            background: rgba(30, 41, 59, 0.95);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            border-radius: 24px;
+            padding: 2.5rem;
+            width: 90%;
+            max-width: 480px;
+            text-align: center;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.7);
+            animation: fadeIn 0.3s ease;
+        }
+
+        .spinner-large {
+            width: 56px;
+            height: 56px;
+            border: 4px solid rgba(255, 255, 255, 0.1);
+            border-top: 4px solid var(--secondary);
+            border-right: 4px solid var(--accent-blue);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 1.5rem auto;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .step-text {
+            font-size: 1.2rem;
+            font-weight: 600;
+            color: var(--text-main);
+            margin-bottom: 1.2rem;
+            min-height: 32px;
+        }
+
+        .progress-track {
+            width: 100%;
+            height: 10px;
+            background: rgba(15, 23, 42, 0.8);
+            border-radius: 20px;
+            overflow: hidden;
+            margin-bottom: 1rem;
+            border: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        .progress-fill {
+            height: 100%;
+            width: 0%;
+            background: linear-gradient(90deg, var(--primary), var(--secondary));
+            border-radius: 20px;
+            transition: width 0.4s ease;
+        }
+
+        .processing-sub {
+            font-size: 0.85rem;
+            color: var(--text-muted);
+        }
+
+        /* Results Container */
+        .results {
+            margin-top: 2rem;
+            display: none;
+            animation: fadeIn 0.6s ease-in-out;
+        }
+
+        /* Map styling */
+        #leaflet-map {
+            width: 100%;
+            height: 400px;
+            border-radius: 18px;
+            margin-bottom: 1.5rem;
+            z-index: 1;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .map-instructions {
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 12px;
+            padding: 1rem;
+            margin-bottom: 1rem;
+            font-size: 0.85rem;
+            color: var(--text-muted);
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            border: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        #result-map {
+            width: 100%;
+            height: 450px;
+            border-radius: 18px;
+            margin-top: 1.5rem;
+            z-index: 1;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .auto-form-row {
+            display: flex;
+            gap: 1rem;
+            align-items: flex-end;
+            flex-wrap: wrap;
+        }
+
+        .auto-form-group {
+            display: flex;
+            flex-direction: column;
+            gap: 0.4rem;
+        }
+
+        .auto-form-group label {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        input[type="date"] {
+            background: rgba(15, 23, 42, 0.9);
+            color: var(--text-main);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            padding: 0.85rem 1.2rem;
+            border-radius: 14px;
+            font-size: 1rem;
+            outline: none;
+        }
+
+        input[type="date"]::-webkit-calendar-picker-indicator {
+            filter: invert(1);
+        }
+
+        footer {
+            margin-top: auto;
+            padding: 2rem 1rem;
+            text-align: center;
+            color: var(--text-muted);
+            font-size: 0.9rem;
+            border-top: 1px solid rgba(255, 255, 255, 0.05);
+            width: 100%;
+            max-width: 1050px;
+        }
+    </style>
+</head>
+
+<body>
+    <header>
+        <div class="brand-badge">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                <polygon points="12 2 2 7 12 12 22 7 12 2"></polygon>
+                <polyline points="2 17 12 22 22 17"></polyline>
+                <polyline points="2 12 12 17 22 12"></polyline>
+            </svg>
+            DisasterAI Intelligence Platform
+        </div>
+        <h1>DisasterAI</h1>
+        <p class="subtitle">AI-Powered Satellite Disaster Damage Assessment</p>
+        <p class="tech-desc">
+            <span>Powered by Siamese Neural Network-based Change Detection</span>
+        </p>
+    </header>
+
+    <div class="container">
+        <!-- Tab System -->
+        <div class="tab-bar">
+            <button class="tab-btn active" id="tabManual" onclick="switchTab('manual')">
+                📤 Manual Imagery Upload
+            </button>
+            <button class="tab-btn" id="tabAuto" onclick="switchTab('auto')">
+                🛰️ Sentinel-2 Satellite Search
+            </button>
+        </div>
+
+        <!-- ===================== TAB 1: MANUAL UPLOAD ===================== -->
+        <div class="tab-content active" id="manualTab">
+            <!-- Inline Form Error Banner -->
+            <div class="error-banner" id="formError">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <circle cx="12" cy="12" r="10"></circle>
+                    <line x1="12" y1="8" x2="12" y2="12"></line>
+                    <line x1="12" y1="16" x2="12.01" y2="16"></line>
+                </svg>
+                <span id="errorMsg">Please upload both Pre-Disaster and Post-Disaster satellite images before running assessment.</span>
+            </div>
+
+            <!-- Global Readiness Indicator -->
+            <div class="readiness-bar" id="readinessBar">
+                ✓ Both Pre-Disaster & Post-Disaster images ready for assessment
+            </div>
+
+            <form id="assessmentForm" onsubmit="handleFormSubmit(event)">
+                <div class="upload-section">
+                    <!-- PRE DISASTER BOX -->
+                    <div class="upload-box" id="preBox">
+                        <div id="preDropArea">
+                            <svg class="upload-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+                                <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+                                <circle cx="8.5" cy="8.5" r="1.5"></circle>
+                                <polyline points="21 15 16 10 5 21"></polyline>
+                            </svg>
+                            <h3>Pre-Disaster Image</h3>
+                            <p class="upload-hint">Drag & drop image here, or click to browse</p>
+                            <span class="upload-formats">Supported: PNG, JPG, WEBP, TIFF</span>
+                            <input type="file" id="preImage" accept=".png,.jpg,.jpeg,.webp,.tif,.tiff,image/*"
+                                onchange="handleFileSelect('preImage', 'prePreview', 'preMeta', 'preBox', 'preContainer')">
+                        </div>
+
+                        <!-- Preview & Metadata -->
+                        <div class="preview-container" id="preContainer">
+                            <div class="ready-badge">🟢 Pre-Disaster Ready</div>
+                            <img id="prePreview" class="preview-img" alt="Pre-Disaster Preview">
+                            <div class="file-meta-card" id="preMeta"></div>
+                            <div class="action-btn-group">
+                                <button type="button" class="btn-action" onclick="triggerFilePicker('preImage')">🔄 Replace</button>
+                                <button type="button" class="btn-action btn-danger" onclick="removeFile('preImage', 'prePreview', 'preMeta', 'preBox', 'preContainer')">🗑️ Remove</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- POST DISASTER BOX -->
+                    <div class="upload-box" id="postBox">
+                        <div id="postDropArea">
+                            <svg class="upload-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+                                <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+                                <circle cx="8.5" cy="8.5" r="1.5"></circle>
+                                <polyline points="21 15 16 10 5 21"></polyline>
+                            </svg>
+                            <h3>Post-Disaster Image</h3>
+                            <p class="upload-hint">Drag & drop image here, or click to browse</p>
+                            <span class="upload-formats">Supported: PNG, JPG, WEBP, TIFF</span>
+                            <input type="file" id="postImage" accept=".png,.jpg,.jpeg,.webp,.tif,.tiff,image/*"
+                                onchange="handleFileSelect('postImage', 'postPreview', 'postMeta', 'postBox', 'postContainer')">
+                        </div>
+
+                        <!-- Preview & Metadata -->
+                        <div class="preview-container" id="postContainer">
+                            <div class="ready-badge">🟢 Post-Disaster Ready</div>
+                            <img id="postPreview" class="preview-img" alt="Post-Disaster Preview">
+                            <div class="file-meta-card" id="postMeta"></div>
+                            <div class="action-btn-group">
+                                <button type="button" class="btn-action" onclick="triggerFilePicker('postImage')">🔄 Replace</button>
+                                <button type="button" class="btn-action btn-danger" onclick="removeFile('postImage', 'postPreview', 'postMeta', 'postBox', 'postContainer')">🗑️ Remove</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Controls -->
+                <div class="controls-panel">
+                    <div class="select-group">
+                        <label for="disasterType">Disaster Category</label>
+                        <select id="disasterType" class="custom-select">
+                            <option value="earthquake">🌋 Earthquake</option>
+                            <option value="flood">🌊 Flood</option>
+                            <option value="wildfire">🔥 Wildfire</option>
+                            <option value="hurricane">🌀 Hurricane / Cyclone</option>
+                            <option value="landslide">🏔️ Landslide</option>
+                            <option value="other">⚡ Other</option>
+                        </select>
+                    </div>
+
+                    <button type="submit" class="btn-primary" id="analyzeBtn">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon>
+                        </svg>
+                        Run Assessment Pipeline
+                    </button>
+                </div>
+            </form>
+        </div>
+
+        <!-- ===================== TAB 2: AUTOMATIC SATELLITE ===================== -->
+        <div class="tab-content" id="autoTab">
+            <div class="map-instructions">
+                <span>📍</span> Draw a rectangle on the map to select your Area of Interest (AOI). Set disaster date & type below.
+            </div>
+            <div id="leaflet-map"></div>
+
+            <div class="auto-form-row">
+                <div class="auto-form-group" style="flex:1;">
+                    <label for="autoDate">Disaster Date</label>
+                    <input type="date" id="autoDate" value="2025-02-06">
+                </div>
+                <div class="auto-form-group" style="flex:1;">
+                    <label for="autoDisasterType">Disaster Category</label>
+                    <select id="autoDisasterType" class="custom-select">
+                        <option value="earthquake">🌋 Earthquake</option>
+                        <option value="flood">🌊 Flood</option>
+                        <option value="wildfire">🔥 Wildfire</option>
+                        <option value="hurricane">🌀 Hurricane / Cyclone</option>
+                        <option value="landslide">🏔️ Landslide</option>
+                        <option value="other">⚡ Other</option>
+                    </select>
+                </div>
+                <div class="auto-form-group">
+                    <label>&nbsp;</label>
+                    <button class="btn-primary" id="autoAnalyzeBtn" onclick="runAutoAssessment()">
+                        🛰️ Fetch & Analyze Satellite Data
+                    </button>
+                </div>
+            </div>
+            <div id="bbox-display" style="margin-top: 1rem; font-size: 0.8rem; color: var(--text-muted);"></div>
+        </div>
+
+        <!-- ===================== STEPPED PROCESSING MODAL ===================== -->
+        <div class="processing-overlay" id="processingOverlay">
+            <div class="processing-card">
+                <div class="spinner-large"></div>
+                <div class="step-text" id="stepText">Analyzing Satellite Images...</div>
+                <div class="progress-track">
+                    <div class="progress-fill" id="progressFill"></div>
+                </div>
+                <p class="processing-sub">Executing Siamese Neural Network Pipeline</p>
+            </div>
+        </div>
+
+        <!-- ===================== RESULTS AREA ===================== -->
+        <div class="results" id="resultsArea">
+            <div id="react-root"></div>
+            <div id="result-map" style="display: none;"></div>
+        </div>
+    </div>
+
+    <footer>
+        <p>DisasterAI — AI-assisted disaster damage assessment from satellite imagery.</p>
+        <p style="font-size: 0.8rem; margin-top: 6px; opacity: 0.7;">Powered by Siamese Convolutional Networks & Automated Change Detection Architecture.</p>
+    </footer>
+
+    <!-- ===================== VANILLA JS LOGIC ===================== -->
+    <script>
+        // Store selected files
+        const loadedFiles = {
+            preImage: null,
+            postImage: null
+        };
+
+        // Drag and drop setup
+        document.addEventListener('DOMContentLoaded', () => {
+            setupDragDrop('preBox', 'preImage');
+            setupDragDrop('postBox', 'postImage');
+        });
+
+        function setupDragDrop(boxId, inputId) {
+            const box = document.getElementById(boxId);
+            const input = document.getElementById(inputId);
+
+            ['dragenter', 'dragover'].forEach(eventName => {
+                box.addEventListener(eventName, (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    box.classList.add('drag-over');
+                }, false);
+            });
+
+            ['dragleave', 'drop'].forEach(eventName => {
+                box.addEventListener(eventName, (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    box.classList.remove('drag-over');
+                }, false);
+            });
+
+            box.addEventListener('drop', (e) => {
+                const dt = e.dataTransfer;
+                const files = dt.files;
+                if (files.length > 0) {
+                    input.files = files;
+                    const previewId = inputId === 'preImage' ? 'prePreview' : 'postPreview';
+                    const metaId = inputId === 'preImage' ? 'preMeta' : 'postMeta';
+                    const containerId = inputId === 'preImage' ? 'preContainer' : 'postContainer';
+                    handleFileSelect(inputId, previewId, metaId, boxId, containerId);
+                }
+            });
+        }
+
+        // Tab switching
+        function switchTab(tab) {
+            document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+            document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
+            document.getElementById('resultsArea').style.display = 'none';
+            if (tab === 'manual') {
+                document.getElementById('manualTab').classList.add('active');
+                document.getElementById('tabManual').classList.add('active');
+            } else {
+                document.getElementById('autoTab').classList.add('active');
+                document.getElementById('tabAuto').classList.add('active');
+                setTimeout(() => { if (window.leafletMap) window.leafletMap.invalidateSize(); }, 200);
+            }
+        }
+
+        function triggerFilePicker(inputId) {
+            document.getElementById(inputId).click();
+        }
+
+        // File selection handler with dimension extraction
+        function handleFileSelect(inputId, imgId, metaId, boxId, containerId) {
+            const input = document.getElementById(inputId);
+            const file = input.files[0];
+            if (!file) return;
+
+            loadedFiles[inputId] = file;
+            document.getElementById('formError').style.display = 'none';
+
+            const box = document.getElementById(boxId);
+            const container = document.getElementById(containerId);
+            const dropArea = document.getElementById(inputId === 'preImage' ? 'preDropArea' : 'postDropArea');
+            const preview = document.getElementById(imgId);
+            const metaCard = document.getElementById(metaId);
+
+            box.classList.add('has-file');
+            dropArea.style.display = 'none';
+            container.style.display = 'flex';
+
+            // Format file size
+            const sizeMB = (file.size / (1024 * 1024)).toFixed(2);
+            const ext = file.name.split('.').pop().toUpperCase();
+
+            // Render preview & calculate image dimensions
+            const reader = new FileReader();
+            reader.onload = function (e) {
+                preview.src = e.target.result;
+                const tempImg = new Image();
+                tempImg.src = e.target.result;
+                tempImg.onload = function () {
+                    const width = this.width;
+                    const height = this.height;
+                    metaCard.innerHTML = `
+                        <span class="file-name-text" title="${file.name}">📄 ${file.name}</span>
+                        <div class="file-meta-row"><span>Dimensions:</span> <strong>${width} × ${height} px</strong></div>
+                        <div class="file-meta-row"><span>File Size:</span> <strong>${sizeMB} MB</strong></div>
+                        <div class="file-meta-row"><span>Format:</span> <strong>${ext}</strong></div>
+                    `;
+                };
+            };
+            reader.readAsDataURL(file);
+
+            checkBothReady();
+        }
+
+        function removeFile(inputId, imgId, metaId, boxId, containerId) {
+            document.getElementById(inputId).value = '';
+            loadedFiles[inputId] = null;
+
+            const box = document.getElementById(boxId);
+            const container = document.getElementById(containerId);
+            const dropArea = document.getElementById(inputId === 'preImage' ? 'preDropArea' : 'postDropArea');
+            const preview = document.getElementById(imgId);
+            const metaCard = document.getElementById(metaId);
+
+            preview.src = '';
+            metaCard.innerHTML = '';
+            box.classList.remove('has-file');
+            container.style.display = 'none';
+            dropArea.style.display = 'block';
+
+            checkBothReady();
+        }
+
+        function checkBothReady() {
+            const readyBar = document.getElementById('readinessBar');
+            if (loadedFiles.preImage && loadedFiles.postImage) {
+                readyBar.style.display = 'block';
+            } else {
+                readyBar.style.display = 'none';
+            }
+        }
+
+        // Stepped execution simulation for pipeline
+        function runSteppedPipeline(callback) {
+            const overlay = document.getElementById('processingOverlay');
+            const stepText = document.getElementById('stepText');
+            const fill = document.getElementById('progressFill');
+
+            overlay.style.display = 'flex';
+
+            const steps = [
+                { text: '🛰️ Analyzing Satellite Images...', pct: 20 },
+                { text: '🔍 Detecting Changes...', pct: 40 },
+                { text: '🏷️ Classifying Damage...', pct: 60 },
+                { text: '🗺️ Generating Damage Map...', pct: 80 },
+                { text: '📊 Preparing Assessment Results...', pct: 100 }
+            ];
+
+            let idx = 0;
+            stepText.innerText = steps[0].text;
+            fill.style.width = steps[0].pct + '%';
+
+            const interval = setInterval(() => {
+                idx++;
+                if (idx < steps.length) {
+                    stepText.innerText = steps[idx].text;
+                    fill.style.width = steps[idx].pct + '%';
+                } else {
+                    clearInterval(interval);
+                    setTimeout(() => {
+                        overlay.style.display = 'none';
+                        callback();
+                    }, 400);
+                }
+            }, 500);
+        }
+
+        // Main Modular Assessment Function
+        async function runAssessment(preFile, postFile, disasterType) {
+            const formData = new FormData();
+            formData.append("pre_image", preFile);
+            formData.append("post_image", postFile);
+            formData.append("disaster_type", disasterType);
+
+            try {
+                // Attempt server call
+                const response = await fetch("http://127.0.0.1:8000/ingest", {
+                    method: "POST",
+                    body: formData
+                });
+
+                if (response.ok) {
+                    const data = await response.json();
+                    data.isDemo = false;
+                    return data;
+                } else {
+                    throw new Error("Backend offline or error");
+                }
+            } catch (err) {
+                console.log("Using Mock/Demo Assessment Pipeline fallback:", err.message);
+                // Return structured DEMO assessment result
+                return generateMockResult(preFile, postFile, disasterType);
+            }
+        }
+
+        // Client-side canvas overlay generator for Demo Damage Map
+        function generateMockHeatmapBase64(postImgSrc) {
+            return new Promise((resolve) => {
+                const img = new Image();
+                img.onload = function () {
+                    const canvas = document.createElement('canvas');
+                    canvas.width = img.width || 512;
+                    canvas.height = img.height || 512;
+                    const ctx = canvas.getContext('2d');
+                    
+                    // Draw original post disaster image
+                    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+                    
+                    // Add color-coded damage overlays
+                    const w = canvas.width;
+                    const h = canvas.height;
+
+                    // Destroyed region (Red)
+                    ctx.fillStyle = 'rgba(239, 68, 68, 0.45)';
+                    ctx.beginPath();
+                    ctx.arc(w * 0.4, h * 0.45, w * 0.18, 0, Math.PI * 2);
+                    ctx.fill();
+
+                    // Major Damage region (Orange)
+                    ctx.fillStyle = 'rgba(249, 115, 22, 0.42)';
+                    ctx.beginPath();
+                    ctx.arc(w * 0.62, h * 0.52, w * 0.22, 0, Math.PI * 2);
+                    ctx.fill();
+
+                    // Minor Damage region (Yellow)
+                    ctx.fillStyle = 'rgba(234, 179, 8, 0.4)';
+                    ctx.beginPath();
+                    ctx.arc(w * 0.3, h * 0.7, w * 0.2, 0, Math.PI * 2);
+                    ctx.fill();
+
+                    // No Damage region (Green)
+                    ctx.fillStyle = 'rgba(34, 197, 94, 0.35)';
+                    ctx.beginPath();
+                    ctx.arc(w * 0.75, h * 0.25, w * 0.16, 0, Math.PI * 2);
+                    ctx.fill();
+
+                    resolve(canvas.toDataURL('image/png').split(',')[1]);
+                };
+                img.onerror = function() {
+                    resolve('');
+                };
+                img.src = postImgSrc;
+            });
+        }
+
+        // Mock result generator
+        async function generateMockResult(preFile, postFile, disasterType) {
+            const preImgSrc = document.getElementById('prePreview').src;
+            const postImgSrc = document.getElementById('postPreview').src;
+
+            const heatmap_base64 = await generateMockHeatmapBase64(postImgSrc);
+
+            const mockGeoJSON = {
+                type: "FeatureCollection",
+                features: [
+                    {
+                        type: "Feature",
+                        properties: { zone: "Zone A", severity: "Destroyed", damage_class: "Destroyed", priority: "Critical", affected_area_ha: 310, affected_area_sq_km: 3.10 },
+                        geometry: { type: "Polygon", coordinates: [[[77.20, 28.61], [77.21, 28.61], [77.21, 28.62], [77.20, 28.62], [77.20, 28.61]]] }
+                    },
+                    {
+                        type: "Feature",
+                        properties: { zone: "Zone B", severity: "Major", damage_class: "Major Damage", priority: "High", affected_area_ha: 420, affected_area_sq_km: 4.20 },
+                        geometry: { type: "Polygon", coordinates: [[[77.21, 28.61], [77.22, 28.61], [77.22, 28.62], [77.21, 28.62], [77.21, 28.61]]] }
+                    },
+                    {
+                        type: "Feature",
+                        properties: { zone: "Zone C", severity: "Minor", damage_class: "Minor Damage", priority: "Medium", affected_area_ha: 480, affected_area_sq_km: 4.80 },
+                        geometry: { type: "Polygon", coordinates: [[[77.20, 28.60], [77.21, 28.60], [77.21, 28.61], [77.20, 28.61], [77.20, 28.60]]] }
+                    },
+                    {
+                        type: "Feature",
+                        properties: { zone: "Zone D", severity: "No Damage", damage_class: "No Damage", priority: "Low", affected_area_ha: 1240, affected_area_sq_km: 12.40 },
+                        geometry: { type: "Polygon", coordinates: [[[77.21, 28.60], [77.22, 28.60], [77.22, 28.61], [77.21, 28.61], [77.21, 28.60]]] }
+                    }
+                ]
+            };
+
+            return {
+                status: "success",
+                isDemo: true,
+                disaster_type: disasterType,
+                processing_time_ms: 1240,
+                confidence_score: 0.92,
+                iou_destroyed: 0.86,
+                heatmap_base64: heatmap_base64,
+                agent_reasoning: "Structural anomaly detection indicates 29.8% severe disruption across residential sectors with concentrated collapse in Zone A.",
+                stats: {
+                    impact_area_ha: { "No Damage": 1240.0, "Minor": 480.0, "Major": 420.0, "Destroyed": 310.0 },
+                    impact_area_sq_km: { "No Damage": 12.40, "Minor": 4.80, "Major": 4.20, "Destroyed": 3.10 },
+                    objects_counted: { "No Damage": 710, "Minor": 280, "Major": 245, "Destroyed": 185 }
+                },
+                geojson: JSON.stringify(mockGeoJSON)
+            };
+        }
+
+        // Form submission handler
+        async function handleFormSubmit(e) {
+            e.preventDefault();
+            const errBanner = document.getElementById('formError');
+
+            if (!loadedFiles.preImage || !loadedFiles.postImage) {
+                errBanner.style.display = 'flex';
+                return;
+            }
+            errBanner.style.display = 'none';
+
+            const disasterType = document.getElementById('disasterType').value;
+            const preImgSrc = document.getElementById('prePreview').src;
+
+            runSteppedPipeline(async () => {
+                const resultsArea = document.getElementById('resultsArea');
+                const resultData = await runAssessment(loadedFiles.preImage, loadedFiles.postImage, disasterType);
+
+                document.getElementById('result-map').style.display = 'none';
+                if (window.renderDashboard) {
+                    window.renderDashboard(resultData, preImgSrc, null);
+                }
+                resultsArea.style.display = "block";
+                resultsArea.scrollIntoView({ behavior: 'smooth' });
+            });
+        }
+
+        // Reset Assessment
+        function resetAssessment() {
+            removeFile('preImage', 'prePreview', 'preMeta', 'preBox', 'preContainer');
+            removeFile('postImage', 'postPreview', 'postMeta', 'postBox', 'postContainer');
+            document.getElementById('resultsArea').style.display = 'none';
+            document.getElementById('formError').style.display = 'none';
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+
+        // Download GeoJSON helper
+        function downloadGeoJSON(geojsonStr) {
+            let dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(geojsonStr);
+            let downloadAnchor = document.createElement('a');
+            downloadAnchor.setAttribute("href", dataStr);
+            downloadAnchor.setAttribute("download", "disaster_damage_map.geojson");
+            document.body.appendChild(downloadAnchor);
+            downloadAnchor.click();
+            downloadAnchor.remove();
+        }
+
+        // Leaflet Map Init (Automatic Sentinel Tab)
+        let drawnBBox = null;
+        let drawnLayer = null;
+        document.addEventListener('DOMContentLoaded', () => {
+            const bounds = L.latLngBounds(L.latLng(-90, -180), L.latLng(90, 180));
+            const satelliteLayer = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+                attribution: 'Tiles &copy; Esri', maxZoom: 19, maxNativeZoom: 17, noWrap: true, bounds: bounds
+            });
+            const darkLayer = L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+                attribution: '&copy; CARTO', maxZoom: 19, subdomains: 'abcd', noWrap: true, bounds: bounds
+            });
+            const streetLayer = L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
+                attribution: '&copy; CARTO', maxZoom: 19, subdomains: 'abcd', noWrap: true, bounds: bounds
+            });
+
+            const map = L.map('leaflet-map', {
+                center: [28.6139, 77.2090], zoom: 4, minZoom: 2, maxBounds: bounds, maxBoundsViscosity: 1.0, layers: [satelliteLayer]
+            });
+
+            L.control.layers({ "Satellite View": satelliteLayer, "Dark Map": darkLayer, "Street Map": streetLayer }).addTo(map);
+
+            const drawnItems = new L.FeatureGroup();
+            map.addLayer(drawnItems);
+
+            const drawControl = new L.Control.Draw({
+                draw: { polygon: false, polyline: false, circle: false, circlemarker: false, marker: false, rectangle: { shapeOptions: { color: '#4F46E5', weight: 2, fillOpacity: 0.15 } } },
+                edit: { featureGroup: drawnItems }
+            });
+            map.addControl(drawControl);
+
+            map.on(L.Draw.Event.CREATED, (e) => {
+                drawnItems.clearLayers();
+                drawnLayer = e.layer;
+                drawnItems.addLayer(drawnLayer);
+                const bounds = drawnLayer.getBounds();
+                drawnBBox = [
+                    parseFloat(bounds.getWest().toFixed(6)), parseFloat(bounds.getSouth().toFixed(6)),
+                    parseFloat(bounds.getEast().toFixed(6)), parseFloat(bounds.getNorth().toFixed(6))
+                ];
+                document.getElementById('bbox-display').innerHTML = `<strong>Selected AOI:</strong> [${drawnBBox.join(', ')}]`;
+            });
+
+            window.leafletMap = map;
+        });
+
+        // Auto assessment handler
+        function runAutoAssessment() {
+            if (!drawnBBox) {
+                alert("Please draw a bounding box on the map first!");
+                return;
+            }
+            const btn = document.getElementById('autoAnalyzeBtn');
+            const results = document.getElementById('resultsArea');
+            btn.disabled = true;
+            results.style.display = 'none';
+
+            runSteppedPipeline(async () => {
+                const payload = {
+                    bbox: drawnBBox,
+                    date: document.getElementById('autoDate').value,
+                    disaster_type: document.getElementById('autoDisasterType').value
+                };
+
+                try {
+                    const res = await fetch("http://127.0.0.1:8000/auto_assess", {
+                        method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload)
+                    });
+                    if (!res.ok) throw new Error("Server Error");
+                    const data = await res.json();
+                    data.isDemo = false;
+                    const preImgSrc = "data:image/png;base64," + data.pre_base64;
+                    if (window.renderDashboard) { window.renderDashboard(data, preImgSrc, drawnBBox); }
+                    results.style.display = "block";
+                    results.scrollIntoView({ behavior: 'smooth' });
+                } catch (err) {
+                    console.log("Sentinel fetch fallback to mock dataset");
+                    const mockData = await generateMockResult(null, null, payload.disaster_type);
+                    if (window.renderDashboard) { window.renderDashboard(mockData, 'https://images.unsplash.com/photo-1542601906990-b4d3fb778b09?w=600&auto=format&fit=crop', drawnBBox); }
+                    results.style.display = "block";
+                    results.scrollIntoView({ behavior: 'smooth' });
+                } finally {
+                    btn.disabled = false;
+                }
+            });
+        }
+    </script>
+
+    <!-- ===================== REACT DASHBOARD COMPONENTS ===================== -->
+    <script type="text/babel">
+        const { useState, useEffect } = React;
+
+        // Image Comparison Slider
+        const SwipeSlider = ({ preImg, postImg }) => {
+            const [sliderPos, setSliderPos] = useState(50);
+            const [isDragging, setIsDragging] = useState(false);
+            const handleMouseMove = (e) => {
+                if (!isDragging) return;
+                const rect = e.currentTarget.getBoundingClientRect();
+                const x = Math.max(0, Math.min(e.clientX - rect.left, rect.width));
+                setSliderPos((x / rect.width) * 100);
+            };
+            return (
+                <div
+                    style={{ position: 'relative', width: '100%', height: '340px', cursor: 'ew-resize', userSelect: 'none', borderRadius: '14px', overflow: 'hidden', border: '1px solid rgba(255,255,255,0.1)' }}
+                    onMouseDown={() => setIsDragging(true)}
+                    onMouseUp={() => setIsDragging(false)}
+                    onMouseLeave={() => setIsDragging(false)}
+                    onMouseMove={handleMouseMove}
+                >
+                    <img src={postImg} style={{ width: '100%', height: '100%', objectFit: 'cover' }} alt="Post Disaster Overlay" />
+                    <img src={preImg} style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', objectFit: 'cover', clipPath: `polygon(0 0, ${sliderPos}% 0, ${sliderPos}% 100%, 0 100%)` }} alt="Pre Disaster" />
+                    <div style={{ position: 'absolute', top: 0, bottom: 0, left: `${sliderPos}%`, width: '3px', backgroundColor: '#fff', pointerEvents: 'none', boxShadow: '0 0 12px rgba(0,0,0,0.8)' }}>
+                        <div style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', width: '36px', height: '36px', borderRadius: '50%', background: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '16px', color: '#1E293B', boxShadow: '0 4px 10px rgba(0,0,0,0.4)', fontWeight: 'bold' }}>⇋</div>
+                    </div>
+                    <div style={{ position: 'absolute', top: 10, left: 10, background: 'rgba(15,23,42,0.85)', color: '#fff', padding: '4px 12px', borderRadius: '8px', fontSize: '0.75rem', fontWeight: 600, border: '1px solid rgba(255,255,255,0.1)' }}>PRE-DISASTER</div>
+                    <div style={{ position: 'absolute', top: 10, right: 10, background: 'rgba(15,23,42,0.85)', color: '#fff', padding: '4px 12px', borderRadius: '8px', fontSize: '0.75rem', fontWeight: 600, border: '1px solid rgba(255,255,255,0.1)' }}>POST + DAMAGE OVERLAY</div>
+                </div>
+            );
+        };
+
+        // Severity Distribution Chart
+        const SeverityChart = ({ stats }) => {
+            useEffect(() => {
+                const ctx = document.getElementById('severityChart');
+                if (!ctx) return;
+                const haData = [
+                    stats.impact_area_sq_km['No Damage'] || 0,
+                    stats.impact_area_sq_km['Minor'] || stats.impact_area_sq_km['Minor Damage'] || 0,
+                    stats.impact_area_sq_km['Major'] || stats.impact_area_sq_km['Major Damage'] || 0,
+                    stats.impact_area_sq_km['Destroyed'] || 0
+                ];
+                const chart = new Chart(ctx.getContext('2d'), {
+                    type: 'bar',
+                    data: {
+                        labels: ['No Damage', 'Minor', 'Major', 'Destroyed'],
+                        datasets: [{ label: 'Impact Area (km²)', data: haData, backgroundColor: ['#22C55E', '#EAB308', '#F97316', '#EF4444'], borderRadius: 8, borderSkipped: false }]
+                    },
+                    options: {
+                        responsive: true, maintainAspectRatio: false,
+                        animation: { duration: 800, easing: 'easeOutQuart' },
+                        plugins: { legend: { display: false } },
+                        scales: {
+                            y: { beginAtZero: true, grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#94A3B8', font: { family: 'Outfit' } } },
+                            x: { grid: { display: false }, ticks: { color: '#94A3B8', font: { family: 'Outfit' } } }
+                        }
+                    }
+                });
+                return () => chart.destroy();
+            }, [stats]);
+            return <canvas id="severityChart" style={{ width: '100%', height: '100%' }}></canvas>;
+        };
+
+        // Result Map Component
+        const ResultMap = ({ geojsonStr, bbox }) => {
+            useEffect(() => {
+                if (!bbox) return;
+                const mapEl = document.getElementById('result-map');
+                mapEl.style.display = 'block';
+                if (window._resultMap) { window._resultMap.remove(); }
+                const center = [(bbox[1] + bbox[3]) / 2, (bbox[0] + bbox[2]) / 2];
+                const satelliteLayer = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', { attribution: 'Tiles &copy; Esri', maxZoom: 19 });
+                const darkLayer = L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', { attribution: '&copy; CARTO', maxZoom: 19, subdomains: 'abcd' });
+
+                const map = L.map('result-map', { center: center, zoom: 14, layers: [satelliteLayer] });
+                L.control.layers({ "Satellite View": satelliteLayer, "Dark Map": darkLayer }).addTo(map);
+                window._resultMap = map;
+
+                try {
+                    const geojson = JSON.parse(geojsonStr);
+                    const colorMap = { 'No Damage': '#22C55E', 'Minor': '#EAB308', 'Minor Damage': '#EAB308', 'Major': '#F97316', 'Major Damage': '#F97316', 'Destroyed': '#EF4444' };
+                    L.geoJSON(geojson, {
+                        style: (feature) => ({ fillColor: colorMap[feature.properties.severity] || '#888', weight: 1.5, opacity: 0.9, color: '#fff', fillOpacity: 0.55 }),
+                        onEachFeature: (feature, layer) => {
+                            const p = feature.properties;
+                            layer.bindPopup(`<b>${p.severity || p.damage_class}</b><br>Zone: ${p.zone || 'N/A'}<br>Area: ${p.affected_area_sq_km || 0} km²`);
+                        }
+                    }).addTo(map);
+                    map.fitBounds([[bbox[1], bbox[0]], [bbox[3], bbox[2]]]);
+                } catch (e) { console.error("GeoJSON render error", e); }
+                setTimeout(() => map.invalidateSize(), 300);
+            }, [geojsonStr, bbox]);
+            return null;
+        };
+
+        // Main Dashboard Component
+        const Dashboard = ({ data, preImgSrc, bbox }) => {
+            const { stats, geojson, confidence_score, heatmap_base64, processing_time_ms, iou_destroyed, agent_reasoning, isDemo, disaster_type } = data;
+
+            const heatmapSrc = heatmap_base64 ? "data:image/png;base64," + heatmap_base64 : preImgSrc;
+
+            const dmgLevels = [
+                { key: 'No Damage', color: '#22C55E', icon: '🟢', classLabel: 'No Damage' },
+                { key: 'Minor', altKey: 'Minor Damage', color: '#EAB308', icon: '🟡', classLabel: 'Minor Damage' },
+                { key: 'Major', altKey: 'Major Damage', color: '#F97316', icon: '🟠', classLabel: 'Major Damage' },
+                { key: 'Destroyed', color: '#EF4444', icon: '🔴', classLabel: 'Destroyed' }
+            ];
+
+            const getStat = (obj, key, altKey) => {
+                if (!obj) return 0;
+                if (obj[key] !== undefined) return obj[key];
+                if (altKey && obj[altKey] !== undefined) return obj[altKey];
+                return 0;
+            };
+
+            const totalSqKm = dmgLevels.reduce((sum, l) => sum + getStat(stats.impact_area_sq_km, l.key, l.altKey), 0);
+            const majorPlusDestroyedSqKm = (getStat(stats.impact_area_sq_km, 'Major', 'Major Damage') + getStat(stats.impact_area_sq_km, 'Destroyed', null)).toFixed(2);
+
+            // Priorities calculation
+            const aidZones = [
+                { zone: 'Zone A', rank: 'Critical', color: '#EF4444', icon: '🔴', area: `${getStat(stats.impact_area_sq_km, 'Destroyed')} km² Destroyed`, desc: 'Highest damage density & severe structural collapse', action: 'Priority 1 — Immediate SAR & Medical Aid' },
+                { zone: 'Zone B', rank: 'High', color: '#F97316', icon: '🟠', area: `${getStat(stats.impact_area_sq_km, 'Major', 'Major Damage')} km² Major Damage`, desc: 'Partial building structural failures & debris blocks', action: 'Priority 2 — Structural Stabilization & Supplies' },
+                { zone: 'Zone C', rank: 'Medium', color: '#EAB308', icon: '🟡', area: `${getStat(stats.impact_area_sq_km, 'Minor', 'Minor Damage')} km² Minor Damage`, desc: 'Localized roof & cosmetic damage, utility outage', action: 'Priority 3 — Power & Water Restoration' },
+                { zone: 'Zone D', rank: 'Low', color: '#22C55E', icon: '🟢', area: `${getStat(stats.impact_area_sq_km, 'No Damage')} km² Baseline`, desc: 'Minimal/no visible change from pre-event baseline', action: 'Priority 4 — Routine Monitoring' }
+            ];
+
+            return (
+                <div style={{ animation: 'fadeIn 0.5s ease-in-out' }}>
+                    
+                    {/* Honest Demo / Live Banner */}
+                    <div style={{
+                        background: isDemo !== false ? 'rgba(234, 179, 8, 0.12)' : 'rgba(16, 185, 129, 0.12)',
+                        border: `1px solid ${isDemo !== false ? 'rgba(234, 179, 8, 0.35)' : 'rgba(16, 185, 129, 0.35)'}`,
+                        borderRadius: '16px', padding: '1rem 1.5rem', marginBottom: '2rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '1rem'
+                    }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                            <span style={{ fontSize: '1.4rem' }}>{isDemo !== false ? '⚠️' : '⚡'}</span>
+                            <div>
+                                <h4 style={{ color: isDemo !== false ? '#FBBF24' : '#34D399', fontSize: '1rem', fontWeight: 700 }}>
+                                    {isDemo !== false ? 'Demo Assessment – AI model not connected' : 'Live AI Assessment – Siamese U-Net Active'}
+                                </h4>
+                                <p style={{ color: '#94A3B8', fontSize: '0.85rem' }}>
+                                    {isDemo !== false ? 'Simulated assessment output based on deterministic feature analysis' : 'Real-time Siamese Neural Network change detection inference'}
+                                </p>
+                            </div>
+                        </div>
+                        <button onClick={resetAssessment} style={{ background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.2)', color: '#F8FAFC', padding: '0.5rem 1rem', borderRadius: '10px', fontSize: '0.85rem', cursor: 'pointer', fontWeight: 600, transition: 'all 0.2s' }}>
+                            🔄 Reset Assessment
+                        </button>
+                    </div>
+
+                    <h2 style={{ fontSize: '2rem', fontWeight: 800, marginBottom: '1.5rem', textAlign: 'center', color: '#F8FAFC' }}>Assessment Results</h2>
+
+                    {/* Overall Assessment Summary Card */}
+                    <div style={{ background: 'rgba(15, 23, 42, 0.6)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '18px', padding: '1.5rem', marginBottom: '2rem' }}>
+                        <h3 style={{ fontSize: '1.1rem', color: '#60A5FA', marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <span>📌</span> Overall Assessment Summary
+                        </h3>
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '1rem' }}>
+                            <div>
+                                <span style={{ fontSize: '0.8rem', color: '#94A3B8', textTransform: 'uppercase' }}>Disaster Category</span>
+                                <div style={{ fontSize: '1.1rem', fontWeight: 700, color: '#F8FAFC', textTransform: 'capitalize' }}>{disaster_type || 'Earthquake'}</div>
+                            </div>
+                            <div>
+                                <span style={{ fontSize: '0.8rem', color: '#94A3B8', textTransform: 'uppercase' }}>Assessment Status</span>
+                                <div style={{ fontSize: '1.1rem', fontWeight: 700, color: isDemo !== false ? '#FBBF24' : '#34D399' }}>
+                                    {isDemo !== false ? 'Completed (Demo)' : 'Completed (Live)'}
+                                </div>
+                            </div>
+                            <div>
+                                <span style={{ fontSize: '0.8rem', color: '#94A3B8', textTransform: 'uppercase' }}>Processing Time</span>
+                                <div style={{ fontSize: '1.1rem', fontWeight: 700, color: '#60A5FA' }}>{processing_time_ms} ms</div>
+                            </div>
+                            <div>
+                                <span style={{ fontSize: '0.8rem', color: '#94A3B8', textTransform: 'uppercase' }}>Total Affected Area</span>
+                                <div style={{ fontSize: '1.1rem', fontWeight: 700, color: '#F8FAFC' }}>{totalSqKm.toFixed(2)} km²</div>
+                            </div>
+                            <div>
+                                <span style={{ fontSize: '0.8rem', color: '#94A3B8', textTransform: 'uppercase' }}>Overall Damage Severity</span>
+                                <div style={{ fontSize: '1.1rem', fontWeight: 700, color: '#F97316' }}>Major Impact</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* KPI Statistics Dashboard */}
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))', gap: '1.2rem', marginBottom: '2rem' }}>
+                        <div style={{ background: 'rgba(30, 41, 59, 0.7)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '16px', padding: '1.2rem', textStyle: 'center' }}>
+                            <div style={{ fontSize: '1.6rem', marginBottom: '0.4rem' }}>🌐</div>
+                            <span style={{ fontSize: '0.8rem', color: '#94A3B8', textTransform: 'uppercase', fontWeight: 600 }}>Total Affected Area</span>
+                            <div style={{ fontSize: '1.6rem', fontWeight: 800, color: '#F8FAFC', marginTop: '0.2rem' }}>{totalSqKm.toFixed(2)} km²</div>
+                        </div>
+                        <div style={{ background: 'rgba(30, 41, 59, 0.7)', border: '1px solid rgba(239, 68, 68, 0.3)', borderRadius: '16px', padding: '1.2rem' }}>
+                            <div style={{ fontSize: '1.6rem', marginBottom: '0.4rem' }}>💥</div>
+                            <span style={{ fontSize: '0.8rem', color: '#94A3B8', textTransform: 'uppercase', fontWeight: 600 }}>Major + Destroyed</span>
+                            <div style={{ fontSize: '1.6rem', fontWeight: 800, color: '#EF4444', marginTop: '0.2rem' }}>{majorPlusDestroyedSqKm} km²</div>
+                        </div>
+                        <div style={{ background: 'rgba(30, 41, 59, 0.7)', border: '1px solid rgba(249, 115, 22, 0.3)', borderRadius: '16px', padding: '1.2rem' }}>
+                            <div style={{ fontSize: '1.6rem', marginBottom: '0.4rem' }}>⚠️</div>
+                            <span style={{ fontSize: '0.8rem', color: '#94A3B8', textTransform: 'uppercase', fontWeight: 600 }}>Most Severe Class</span>
+                            <div style={{ fontSize: '1.4rem', fontWeight: 800, color: '#F97316', marginTop: '0.2rem' }}>Major Damage</div>
+                        </div>
+                        <div style={{ background: 'rgba(30, 41, 59, 0.7)', border: '1px solid rgba(96, 165, 250, 0.3)', borderRadius: '16px', padding: '1.2rem' }}>
+                            <div style={{ fontSize: '1.6rem', marginBottom: '0.4rem' }}>⏱️</div>
+                            <span style={{ fontSize: '0.8rem', color: '#94A3B8', textTransform: 'uppercase', fontWeight: 600 }}>Processing Time</span>
+                            <div style={{ fontSize: '1.6rem', fontWeight: 800, color: '#60A5FA', marginTop: '0.2rem' }}>{processing_time_ms} ms</div>
+                            <span style={{ fontSize: '0.7rem', color: '#22C55E' }}>✓ Target &lt; 30s</span>
+                        </div>
+                    </div>
+
+                    {/* Reasoning Block */}
+                    {agent_reasoning && (
+                        <div style={{ background: 'rgba(15, 23, 42, 0.7)', borderLeft: '4px solid #60A5FA', padding: '1.2rem', borderRadius: '12px', marginBottom: '2rem' }}>
+                            <h4 style={{ color: '#60A5FA', fontSize: '0.85rem', textTransform: 'uppercase', marginBottom: '0.4rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                <span>🧠</span> AI Inference Reasoning Model
+                            </h4>
+                            <p style={{ color: '#E2E8F0', fontStyle: 'italic', fontSize: '1rem', lineHeight: '1.5' }}>"{agent_reasoning}"</p>
+                        </div>
+                    )}
+
+                    {/* Damage Severity Map & Comparison Slider */}
+                    <div style={{ background: 'rgba(15, 23, 42, 0.5)', border: '1px solid rgba(255,255,255,0.08)', padding: '1.5rem', borderRadius: '20px', marginBottom: '2rem' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', flexWrap: 'wrap', gap: '0.5rem' }}>
+                            <h3 style={{ color: '#F8FAFC', fontSize: '1.15rem', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                🗺️ Damage Severity Map & Visual Change Overlay
+                            </h3>
+                            <span style={{ fontSize: '0.75rem', background: 'rgba(255,255,255,0.06)', padding: '4px 10px', borderRadius: '12px', color: '#94A3B8' }}>
+                                {isDemo !== false ? 'Simulated Damage Map (Demo Assessment)' : 'Live Segmentation Output'}
+                            </span>
+                        </div>
+
+                        {/* Legend */}
+                        <div style={{ display: 'flex', gap: '1.2rem', marginBottom: '1rem', flexWrap: 'wrap', background: 'rgba(0,0,0,0.3)', padding: '0.8rem 1.2rem', borderRadius: '12px' }}>
+                            {dmgLevels.map(lvl => (
+                                <div key={lvl.key} style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.85rem' }}>
+                                    <span style={{ width: 12, height: 12, borderRadius: '50%', background: lvl.color, display: 'inline-block' }}></span>
+                                    <span style={{ color: '#F8FAFC', fontWeight: 500 }}>{lvl.classLabel}</span>
+                                </div>
+                            ))}
+                        </div>
+
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem' }}>
+                            <div>
+                                <h4 style={{ marginBottom: '0.8rem', color: '#60A5FA', textAlign: 'center', fontSize: '0.9rem' }}>🛰️ Interactive Swipe Comparison</h4>
+                                <SwipeSlider preImg={preImgSrc} postImg={heatmapSrc} />
+                            </div>
+                            <div style={{ display: 'flex', flexDirection: 'column' }}>
+                                <h4 style={{ marginBottom: '0.8rem', color: '#F87171', textAlign: 'center', fontSize: '0.9rem' }}>📊 Damage Severity Distribution</h4>
+                                <div style={{ flexGrow: 1, position: 'relative', minHeight: '260px' }}>
+                                    <SeverityChart stats={stats} />
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Damage Classification Breakdown Table */}
+                    <div style={{ background: 'rgba(15, 23, 42, 0.5)', border: '1px solid rgba(255,255,255,0.08)', padding: '1.5rem', borderRadius: '20px', marginBottom: '2rem' }}>
+                        <h3 style={{ marginBottom: '1.2rem', color: '#F8FAFC', fontSize: '1.15rem', fontWeight: 700 }}>
+                            📋 Damage Classification Breakdown
+                        </h3>
+                        <div style={{ overflowX: 'auto' }}>
+                            <table style={{ width: '100%', borderCollapse: 'separate', borderSpacing: '0 8px' }}>
+                                <thead>
+                                    <tr style={{ fontSize: '0.8rem', color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                                        <th style={{ textAlign: 'left', padding: '0 14px', fontWeight: 600 }}>Damage Class</th>
+                                        <th style={{ textAlign: 'center', padding: '0 14px', fontWeight: 600 }}>Area (km²)</th>
+                                        <th style={{ textAlign: 'center', padding: '0 14px', fontWeight: 600 }}>Area (ha)</th>
+                                        <th style={{ textAlign: 'center', padding: '0 14px', fontWeight: 600 }}>Percentage</th>
+                                        <th style={{ textAlign: 'left', padding: '0 14px', fontWeight: 600 }}>Visual Distribution</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {dmgLevels.map(lvl => {
+                                        const sqKm = getStat(stats.impact_area_sq_km, lvl.key, lvl.altKey);
+                                        const ha = getStat(stats.impact_area_ha, lvl.key, lvl.altKey);
+                                        const pct = totalSqKm > 0 ? ((sqKm / totalSqKm) * 100).toFixed(1) : '0.0';
+                                        return (
+                                            <tr key={lvl.key} style={{ background: 'rgba(255,255,255,0.03)', borderRadius: '10px' }}>
+                                                <td style={{ padding: '12px 14px', borderRadius: '10px 0 0 10px' }}>
+                                                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 10, fontWeight: 600 }}>
+                                                        <span style={{ width: 12, height: 12, borderRadius: '50%', background: lvl.color, display: 'inline-block' }}></span>
+                                                        {lvl.classLabel}
+                                                    </span>
+                                                </td>
+                                                <td style={{ textAlign: 'center', padding: '12px 14px', fontWeight: 700, color: lvl.color }}>{sqKm.toFixed(2)} km²</td>
+                                                <td style={{ textAlign: 'center', padding: '12px 14px', color: '#94A3B8' }}>{ha.toFixed(1)} ha</td>
+                                                <td style={{ textAlign: 'center', padding: '12px 14px', fontWeight: 600 }}>{pct}%</td>
+                                                <td style={{ padding: '12px 14px', borderRadius: '0 10px 10px 0', width: '30%' }}>
+                                                    <div style={{ width: '100%', height: '8px', background: 'rgba(15,23,42,0.8)', borderRadius: '10px', overflow: 'hidden' }}>
+                                                        <div style={{ width: `${pct}%`, height: '100%', background: lvl.color, borderRadius: '10px', transition: 'width 0.6s ease' }}></div>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        );
+                                    })}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    {/* Aid Deployment Priority Section */}
+                    <div style={{ background: 'rgba(15, 23, 42, 0.5)', border: '1px solid rgba(255,255,255,0.08)', padding: '1.5rem', borderRadius: '20px', marginBottom: '2rem' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem', flexWrap: 'wrap' }}>
+                            <h3 style={{ color: '#F8FAFC', fontSize: '1.15rem', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                🚑 Aid Deployment Priority
+                            </h3>
+                            <span style={{ fontSize: '0.75rem', background: 'rgba(239, 68, 68, 0.15)', border: '1px solid rgba(239, 68, 68, 0.3)', color: '#F87171', padding: '3px 10px', borderRadius: '12px', fontWeight: 600 }}>
+                                Demo / Simulated Prioritization Model
+                            </span>
+                        </div>
+                        <p style={{ color: '#94A3B8', fontSize: '0.9rem', marginBottom: '1.2rem' }}>
+                            Priority zones are ranked based on estimated damage severity and affected area.
+                        </p>
+
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '1rem' }}>
+                            {aidZones.map(z => (
+                                <div key={z.zone} style={{ background: 'rgba(30, 41, 59, 0.6)', border: `1px solid ${z.color}40`, borderLeft: `4px solid ${z.color}`, borderRadius: '14px', padding: '1.2rem' }}>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
+                                        <h4 style={{ fontSize: '1.1rem', color: '#F8FAFC', fontWeight: 700 }}>{z.zone}</h4>
+                                        <span style={{ background: `${z.color}25`, color: z.color, padding: '2px 10px', borderRadius: '12px', fontSize: '0.75rem', fontWeight: 700 }}>
+                                            {z.icon} {z.rank}
+                                        </span>
+                                    </div>
+                                    <p style={{ fontSize: '0.85rem', color: '#94A3B8', marginBottom: '0.6rem' }}>{z.desc}</p>
+                                    <div style={{ fontSize: '0.8rem', fontWeight: 600, color: z.color, background: 'rgba(15,23,42,0.6)', padding: '6px 10px', borderRadius: '8px' }}>
+                                        {z.action}
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+
+                    {/* GeoJSON Export & Action Bar */}
+                    <div style={{ background: 'rgba(79, 70, 229, 0.08)', border: '1px solid rgba(79, 70, 229, 0.3)', borderRadius: '18px', padding: '1.5rem', marginBottom: '2rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem' }}>
+                        <div>
+                            <h4 style={{ color: '#F8FAFC', fontSize: '1.05rem', fontWeight: 700, marginBottom: '0.3rem' }}>🌐 Export Geospatial Damage Layers</h4>
+                            <p style={{ color: '#94A3B8', fontSize: '0.85rem' }}>Download GeoJSON FeatureCollection formatted for QGIS, ArcGIS, or disaster response dispatch tools.</p>
+                        </div>
+                        <button onClick={() => downloadGeoJSON(geojson)} className="btn-primary" style={{ background: 'linear-gradient(135deg, #10B981, #059669)', border: 'none' }}>
+                            📥 Export Damage Map as GeoJSON
+                        </button>
+                    </div>
+
+                    {/* AI Model Information Card */}
+                    <div style={{ background: 'rgba(15, 23, 42, 0.6)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '18px', padding: '1.5rem' }}>
+                        <h3 style={{ color: '#F8FAFC', fontSize: '1.1rem', fontWeight: 700, marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            🤖 AI Model Architecture & Benchmark Info
+                        </h3>
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem', fontSize: '0.85rem' }}>
+                            <div>
+                                <span style={{ color: '#94A3B8', display: 'block', marginBottom: '2px' }}>Model Architecture</span>
+                                <strong style={{ color: '#60A5FA' }}>Siamese Neural Network (U-Net)</strong>
+                            </div>
+                            <div>
+                                <span style={{ color: '#94A3B8', display: 'block', marginBottom: '2px' }}>Purpose</span>
+                                <strong style={{ color: '#F8FAFC' }}>Before / after satellite change detection</strong>
+                            </div>
+                            <div>
+                                <span style={{ color: '#94A3B8', display: 'block', marginBottom: '2px' }}>Output Classes</span>
+                                <strong style={{ color: '#34D399' }}>No Damage / Minor / Major / Destroyed</strong>
+                            </div>
+                            <div>
+                                <span style={{ color: '#94A3B8', display: 'block', marginBottom: '2px' }}>Evaluation Metrics</span>
+                                <strong style={{ color: '#F8FAFC' }}>IoU, Classification Acc, Time</strong>
+                            </div>
+                            <div>
+                                <span style={{ color: '#94A3B8', display: 'block', marginBottom: '2px' }}>Target Speed</span>
+                                <strong style={{ color: '#EAB308' }}>&lt; 30 seconds per image pair</strong>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Result Map (Leaflet auto mode) */}
+                    {bbox && <ResultMap geojsonStr={geojson} bbox={bbox} />}
+                </div>
+            );
+        };
+
+        window.renderDashboard = (data, preImgSrc, bbox) => {
+            const root = ReactDOM.createRoot(document.getElementById('react-root'));
+            root.render(<Dashboard data={data} preImgSrc={preImgSrc} bbox={bbox} />);
+        };
+    </script>
+</body>
+
+</html>
