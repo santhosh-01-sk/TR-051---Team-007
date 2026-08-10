@@ -1,6 +1,7 @@
 # DisasterAI — AI-Powered Satellite Disaster Damage Assessment
 
 ![DisasterAI Platform](https://img.shields.io/badge/Platform-DisasterAI-4F46E5?style=for-the-badge&logo=satellite)
+![Vercel Deployment](https://img.shields.io/badge/Deployment-Vercel%20Ready-000000?style=for-the-badge&logo=vercel)
 ![Python](https://img.shields.io/badge/Backend-Python%20%7C%20Flask-3776AB?style=for-the-badge&logo=python)
 ![PyTorch](https://img.shields.io/badge/ML-PyTorch%20%7C%20Siamese%20U--Net-EE4C2C?style=for-the-badge&logo=pytorch)
 ![Frontend](https://img.shields.io/badge/Frontend-HTML5%20%7C%20CSS3%20%7C%20React-61DAFB?style=for-the-badge&logo=react)
@@ -25,7 +26,7 @@
 - **Aid Deployment Priority Ranking**: Ranks geographic sectors into **Critical (Zone A)**, **High (Zone B)**, **Medium (Zone C)**, and **Low (Zone D)** priority zones to streamline disaster response dispatch.
 - **GeoJSON Spatial Data Export**: Download complete `FeatureCollection` geospatial layers compatible with QGIS, ArcGIS, and emergency dispatch systems.
 - **Stepped Pipeline Progress State**: 5-stage animated progress feedback (*Analyzing Satellite Images...* → *Detecting Changes...* → *Classifying Damage...* → *Generating Damage Map...* → *Preparing Assessment Results...*).
-- **Honest Demo / Live Model Labeling**: Transparently indicates when operating in **Live AI Assessment** vs **Demo Assessment** mode.
+- **Honest Demo / Live Model Labeling**: Transparently indicates **Demo Assessment — AI model not trained** when operating in frontend demo mode.
 
 ---
 
@@ -33,7 +34,8 @@
 
 ```
 Disaster/
-├── backend/
+├── index.html                # Vercel Static Frontend Entry Point (Root)
+├── backend/                  # Python/Flask Machine Learning Backend
 │   ├── app.py                # Flask Web Server & API Endpoints (/ingest, /auto_assess)
 │   ├── model.py              # Siamese U-Net Neural Network Architecture (PyTorch)
 │   ├── pipeline.py           # Disaster Assessment Inference Pipeline
@@ -42,50 +44,59 @@ Disaster/
 │   ├── test_run.py           # Pipeline Verification Script
 │   └── requirements.txt      # Python Dependencies
 ├── frontend/
-│   └── disaster.html         # DisasterAI Web Interface (HTML5, Glassmorphism CSS, React, Leaflet)
+│   └── disaster.html         # Frontend Source Copy
 ├── .gitignore                # Git Ignore Configurations
 └── README.md                 # Project Documentation
 ```
 
 ---
 
-## 🚀 Getting Started
+## 🌐 Deploying Frontend to Vercel
 
-### Prerequisites
+The frontend entry point `index.html` is located at the root of the repository, making it 100% compatible with instant Vercel static deployment without requiring Python, Flask, or backend server configuration.
 
-- **Python**: 3.10 or higher
-- **Node/Browser**: Any modern web browser (Chrome, Firefox, Edge, Safari)
+### Deployment Steps:
 
-### Installation & Setup
+#### Option A: Via GitHub Integration (Recommended)
+1. Push your repository to GitHub.
+2. Log in to [Vercel Dashboard](https://vercel.com/dashboard).
+3. Click **"Add New..."** → **"Project"**.
+4. Import your GitHub repository (`TR-051---Team-007`).
+5. Keep **Framework Preset** as **"Other"** (or Static HTML).
+6. Click **Deploy**. Vercel will instantly host `index.html` live.
 
-1. **Clone the Repository**:
-   ```bash
-   git clone https://github.com/santhosh-01-sk/TR-051---Team-007.git
-   cd TR-051---Team-007
-   ```
+#### Option B: Via Vercel CLI
+```bash
+npm install -g vercel
+vercel login
+vercel --prod
+```
 
-2. **Set up Virtual Environment** (Optional but Recommended):
-   ```bash
-   python -m venv venv
-   # On Windows:
-   venv\Scripts\activate
-   # On macOS/Linux:
-   source venv/bin/activate
-   ```
+> **Note on Demo Mode**: The Vercel deployment runs entirely client-side in the browser. It does not attempt calls to `127.0.0.1:8000` or `localhost:8000`, ensuring fast and reliable demo rendering without server requirements.
 
-3. **Install Dependencies**:
+---
+
+## 🚀 Local Development
+
+### Running Frontend Locally
+Simply open `index.html` in any web browser, or serve it using Python:
+```bash
+python -m http.server 8080
+```
+Open `http://localhost:8080` in your browser.
+
+### Running Backend Server (Local AI Inference)
+
+1. **Install Python Dependencies**:
    ```bash
    pip install -r backend/requirements.txt
    ```
 
-4. **Launch the Backend Server**:
+2. **Launch Flask Backend**:
    ```bash
    python backend/app.py
    ```
-   *The server will start at `http://127.0.0.1:8000`.*
-
-5. **Open the Web Application**:
-   Open `http://127.0.0.1:8000` in your web browser, or open `frontend/disaster.html` directly for client-side demo mode.
+   *The backend will listen on `http://127.0.0.1:8000`.*
 
 ---
 
